@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Constellation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #ffe5ec 100%);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .form-container {
+            background: #fff0f6;
+            padding: 28px 28px 20px 28px;
+            border-radius: 18px;
+            box-shadow: 0 8px 32px rgba(255, 182, 193, 0.18);
+            width: 100%;
+            max-width: 600px;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border: 2px solid #ffd6e0;
+            position: relative;
+        }
+        .form-container::before {
+            content: "⭐";
+            font-size: 2.2rem;
+            position: absolute;
+            left: 18px;
+            top: 10px;
+        }
+        h1 {
+            font-family: 'Pacifico', cursive;
+            color: #ff69b4;
+            font-size: 2.3rem;
+            margin-bottom: 0.5rem;
+            margin-top: 0.2rem;
+            letter-spacing: 1px;
+        }
+        .form-container p {
+            color: #a678b4;
+            font-size: 1.08rem;
+            margin-bottom: 14px;
+            margin-top: 0;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 12px;
+            border: 2px solid #ffd6e0;
+            border-radius: 10px;
+            font-size: 17px;
+            margin-bottom: 14px;
+            background: #fff;
+            resize: none;
+            transition: border-color 0.2s;
+        }
+        textarea:focus {
+            border-color: #ffb3c6;
+            outline: none;
+        }
+        button {
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(90deg, #ffb3c6 0%, #a3cef1 100%);
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(255, 182, 193, 0.12);
+            transition: background 0.2s, transform 0.15s;
+        }
+        button:hover {
+            background: linear-gradient(90deg, #a3cef1 0%, #ffb3c6 100%);
+            transform: scale(1.03);
+        }
+        #graph-container {
+            width: 100%;
+            max-width: 1200px;
+            height: 800px;
+            border: 2px solid #ffd6e0;
+            border-radius: 18px;
+            background-color: #fff0f6;
+            box-shadow: 0 8px 32px rgba(255, 182, 193, 0.10);
+            position: relative;
+            margin-bottom: 20px;
+        }
+        #panel-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 22px;
+            width: 100%;
+            max-width: 1200px;
+            margin-top: 10px;
+        }
+        .panel {
+            width: 100%;
+            background: #fff;
+            padding: 16px 12px 12px 12px;
+            border: 2px solid #ffd6e0;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(255, 182, 193, 0.10);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .panel:hover {
+            transform: scale(1.025);
+            box-shadow: 0 8px 32px rgba(255, 182, 193, 0.18);
+        }
+        h3 {
+            color: #a678b4;
+            font-family: 'Roboto', Arial, sans-serif;
+            margin-top: 0;
+        }
+        ul {
+            padding-left: 18px;
+        }
+        .legend-item {
+            margin: 5px 0;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        /* Nod stea hover effect */
+        .nodes path {
+            transition: filter 0.2s, transform 0.2s;
+            filter: drop-shadow(0 0 0px #ffb3c6);
+        }
+        .nodes path:hover {
+            filter: drop-shadow(0 0 8px #ffb3c6);
+            transform: scale(1.15);
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Word Constellation</h1>
+        <p>
+            Write up to <b>10 words</b> separated by comma.<br>
+            Write every word correct (ex: <i>cat, dog, apple</i>).<br>
+            The default language is <b>english</b>, but you can use any other language.
+            <span style="color:#e57373;">
+                For Romanian, use diacritics (ex: <i>pisică, pește</i>) for best results.<br>
+                If a word is not shown, try writing it in English or with diacritics.<br>
+            <b>All words will be shown, even if they have no connections.</b>
+            </span>
+        </p>
+        <textarea id="words-input" placeholder="Enter words separated by commas"></textarea>
+        <button id="submit-button">Submit</button>
+    </div>
+    <div id="graph-container"></div>
+    <div id="panel-container">
+        <div id="careers-panel" class="panel">
+            <h3>Suggested Careers</h3>
+            <ul id="careers-list"></ul>
+        </div>
+        <div id="words-panel" class="panel">
+            <h3>Words in Constellation</h3>
+            <ul id="words-list"></ul>
+        </div>
+        <div id="economy-panel" class="panel">
+            <h3>Economic Tags</h3>
+            <ul id="economy-list"></ul>
+        </div>
+        <div id="trends-panel" class="panel">
+            <h3>Trendy Topics</h3>
+            <ul id="trends-list"></ul>
+        </div>
+    </div>
+
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script>
+         document.getElementById('submit-button').addEventListener('click', async function () {
+            const wordsRaw = document.getElementById('words-input').value.trim();
+            if (!wordsRaw) {
+                alert('Please enter some words.');
+                return;
+            }
+            // Limit to 10 words
+            const wordsArr = wordsRaw.split(',').map(w => w.trim()).filter(w => w.length > 0);
+            if (wordsArr.length > 10) {
+                alert('Please enter a maximum of 10 words.');
+                return;
+            }
+            const words = wordsArr.join(','); // Reconstruct string for backend
+
+            try {
+                const response = await fetch('http://localhost:3002/process-words', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ words }),
+                });
+
+                const text = await response.text();
+                try {
+                    const data = JSON.parse(text);
+                    if (response.ok) {
+                        renderGraph(data);
+                        updatePanels(data);
+                    } else {
+                        alert(data.error || 'Failed to process words.');
+                    }
+                } catch (jsonError) {
+                    alert('Server response is not valid JSON.');
+                }
+            } catch (error) {
+                alert('An error occurred. Please try again.');
+            }
+        });
+
+        function renderGraph(data) {
+            // Șterge SVG-ul existent înainte de a crea unul nou
+            d3.select('#graph-container').select('svg').remove();
+            // Log data for debugging
+            console.log('Rendering graph with data:', data);
+
+            const graphContainer = document.getElementById('graph-container');
+            let width = graphContainer.clientWidth || window.innerWidth * 0.8; // 80% of window width
+            let height = graphContainer.clientHeight || window.innerHeight * 0.8; // 80% of window height
+
+            const svg = d3.select('#graph-container').append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .style('border', '1px solid black');
+
+                // Poziționare inițială pentru noduri (exemplu: constelație circulară)
+            data.nodes.forEach((node, i) => {
+                const angle = (i / data.nodes.length) * 2 * Math.PI; // Unghiul fiecărui nod
+                node.x = width / 2 + Math.cos(angle) * 200; // Poziționare pe cerc
+                node.y = height / 2 + Math.sin(angle) * 200;
+            });
+
+            // Add force simulation
+            const simulation = d3.forceSimulation(data.nodes)
+                .force('link', d3.forceLink(data.links).id(d => d.id).distance(100)) // Distanța dintre noduri conectate
+                .force('charge', d3.forceManyBody().strength(-50)) // Forță de respingere între noduri
+                .force('center', d3.forceCenter(width / 2, height / 2)) // Centrare pe canvas
+                .force('collision', d3.forceCollide().radius(50)) // Crește raza de coliziune pentru a evita suprapunerea
+                .force('radial', d3.forceRadial(300, width / 2, height / 2)); // Poziționare radială pentru aspect de constelație
+
+
+            // Draw links (connections between nodes)
+            const link = svg.append('g')
+                .attr('class', 'links')
+                .selectAll('line')
+                .data(data.links)
+                .enter().append('line')
+                .attr('stroke', '#999')
+                .attr('stroke-width', 1.5);
+
+            // Draw nodes (these are the words)
+            const node = svg.append('g')
+                .attr('class', 'nodes')
+                .selectAll('g') // Create a group for each node
+                .data(data.nodes)
+                .enter().append('g') // Append a group for each node
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended));
+
+            // Desenează stele în loc de cercuri
+            node.append('path')
+                .attr('d', d3.symbol().type(d3.symbolStar).size(800)) // 800 = mărimea stelei, ajustează după preferință
+                .attr('fill', 'yellow')
+                .attr('stroke', 'gold')
+                .attr('stroke-width', 2);
+
+            // Append text to the groups
+            node.append('text')
+                .attr('dy', -20) // Position text above the node
+                .attr('text-anchor', 'middle')
+                .attr('font-size', '12px')
+                .attr('fill', '#333')
+                .text(d => d.id); // Add the word text to each node
+
+            // Simulation tick
+            simulation.on('tick', () => {
+            // Update positions of links
+             link
+                .attr('x1', d => d.source.x)
+                .attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x)
+                .attr('y2', d => d.target.y);
+
+                // Update positions of nodes and text
+                 node.attr('transform', d =>//{
+                    // Limitează nodurile în interiorul canvasului
+                    //d.x = Math.max(20, Math.min(width - 20, d.x)); // 10 este raza nodului
+                    //d.y = Math.max(20, Math.min(height - 20, d.y));
+                    `translate(${d.x},${d.y})`);
+            });
+
+            // Drag events
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+        }
+
+        function updatePanels(data) {
+            const careersList = document.getElementById('careers-list');
+            const wordsList = document.getElementById('words-list');
+            const economyList = document.getElementById('economy-list');
+            const trendsList = document.getElementById('trends-list');
+
+            // Log data for debugging
+            console.log('Updating panels with data:', data);
+
+            careersList.innerHTML = '';
+            wordsList.innerHTML = '';
+            economyList.innerHTML = '';
+            trendsList.innerHTML = '';
+
+            // Check if data contains careers and words
+            if (data.careers && Array.isArray(data.careers)) {
+                data.careers.forEach(career => {
+                    const li = document.createElement('li');
+                    li.textContent = career;
+                    careersList.appendChild(li);
+                });
+            } else {
+                careersList.innerHTML = '<li>No careers found.</li>';
+            }
+
+            if (data.words && Array.isArray(data.words)) {
+                data.words.forEach(word => {
+                const li = document.createElement('li');
+                li.textContent = word;
+                wordsList.appendChild(li);
+                });
+
+            } else {
+                wordsList.innerHTML = '<li>No words found.</li>';
+            }
+
+            if (data.economy && Array.isArray(data.economy)) {
+                data.economy.forEach(tag => {
+                    const li = document.createElement('li');
+                    li.textContent = tag;
+                    economyList.appendChild(li);
+                });
+            } else {
+                economyList.innerHTML = '<li>No tags found.</li>';
+            }
+
+            if (data.trends && Array.isArray(data.trends)) {
+                data.trends.forEach(topic => {
+                    const li = document.createElement('li');
+                    li.textContent = topic;
+                    trendsList.appendChild(li);
+                });
+            } else {
+                trendsList.innerHTML = '<li>No trendy topics found.</li>';
+            }
+        }
+
+    </script>
+</body>
+</html>

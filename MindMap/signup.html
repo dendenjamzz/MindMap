@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f7f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .form-container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        label {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 6px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .show-password {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .show-password input[type="checkbox"] {
+            width: auto;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .redirect-link {
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .redirect-link a {
+            color: #007BFF;
+            text-decoration: none;
+        }
+
+        .redirect-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Create an Account</h1>
+        <form id="signup-form">
+            <label for="username">Username:</label>
+            <input type="text" id="username" autocomplete="username" required>
+
+            <label for="email">Email:</label>
+            <input type="email" id="email" autocomplete="email" required>
+
+            <label for="password">Password:</label>
+            <input type="password" id="password" autocomplete="new-password" required>
+
+            <div class="show-password">
+                <label for="show-password">Show Password</label>
+                <input type="checkbox" id="show-password">
+            </div>
+
+            <button type="submit">Sign Up</button>
+        </form>
+        <div class="redirect-link">
+            <p>Already have an account? <a href="login.html">Login here</a></p>
+        </div>
+    </div>
+
+    <script>
+        // Show/hide password functionality
+        document.getElementById('show-password').addEventListener('change', function() {
+            const passwordField = document.getElementById('password');
+            passwordField.type = this.checked ? 'text' : 'password';
+        });
+
+        // Handle the form submission
+        document.getElementById('signup-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+         const username = document.getElementById('username').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value.trim();
+
+        try {
+            const response = await fetch('http://localhost:3002/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password })
+            });
+
+
+        const responseData = await response.json(); // Attempt to parse the response as JSON
+
+        if (response.ok) {
+            alert('Signup successful! Please confirm your email.');
+            window.location.href = 'confirmation.html'; // Redirect to confirmation page
+        } else {
+            alert(responseData.error || 'Failed to sign up.');
+        }
+        } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.'); // Show a general error message
+        }
+        });
+
+
+
+          
+    </script>
+</body>
+</html>

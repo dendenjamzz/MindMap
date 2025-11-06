@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Confirmation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+        }
+
+        .confirmation-page {
+            display: flex;
+            height: 100vh;
+        }
+
+        .side-window {
+            width: 300px;
+            background-color: #4CAF50;
+            color: white;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .side-window.dark {
+            background-color: #333;
+        }
+
+        .account-icon {
+            width: 80px;
+            height: 80px;
+            background-color: #fff;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            cursor: pointer;
+            background-size: cover;
+        }
+
+        .account-details p {
+            font-size: 16px;
+            margin: 10px 0;
+        }
+
+        .button {
+            background-color: #fff;
+            color: #4CAF50;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px 0;
+            cursor: pointer;
+            width: 100%;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .button:hover {
+            background-color: #45a049;
+            color: white;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 30px;
+            box-sizing: border-box;
+        }
+
+        .main-content h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+
+        .main-content p {
+            font-size: 18px;
+        }
+
+        .dark {
+            background-color: #333;
+            color: white;
+        }
+
+        #report-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .report-container textarea {
+            width: 100%;
+            height: 100px;
+            border-radius: 5px;
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        .report-container button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .report-container button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="confirmation-page">
+        <!-- Side Window -->
+        <div class="side-window" id="side-window">
+            <div class="account-icon" id="account-icon" onclick="changeProfileImage()"></div>
+            <div class="account-details">
+                <p id="user-name">Username</p>
+                <p id="user-email">Email</p>
+            </div>
+            <button class="button" id="toggle-theme" onclick="toggleTheme()">Switch to Dark Mode</button>
+            <button class="button" id="get-reports" onclick="showReportInput()">Submit a Report</button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content" id="main-content">
+            <h1>Welcome to MindMap!</h1>
+            <p>Your email has been successfully confirmed.</p>
+            <p id="constellations-status">Constellations Created: <span id="constellations-count">0</span></p>
+            <button class="button" id="start-new" onclick="window.location.href='newc.html'">Start a New Constellation</button>
+        </div>
+    </div>
+
+    <!-- Report Container (Hidden by default) -->
+    <div id="report-container" class="report-container">
+        <h3>Write Your Report</h3>
+        <textarea id="report-input" class="report-input" placeholder="Write your report here..."></textarea>
+        <button class="button" onclick="submitReport()">Submit Report</button>
+        <button class="button" onclick="cancelReport()">Cancel</button>
+    </div>
+
+    <script>
+        // Initialize the page after DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = JSON.parse(localStorage.getItem('user'));
+            console.log('Retrieved user data from localStorage:', user); // Add this line for debugging
+
+            if (!user || !user.emailConfirmed) {
+                console.error('User is not logged in or email is not confirmed:', user); // Add this line for debugging
+        
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Update user details on the page
+            document.getElementById('user-name').textContent = user.username;
+            document.getElementById('user-email').textContent = user.email;
+
+            // Set profile image
+            const profileImage = user.profileImage || 'default.png';
+            document.getElementById('account-icon').style.backgroundImage = `url('${profileImage}')`;
+
+            // Set constellations count
+            const constellationsCount = user.constellations ? user.constellations.length : 0;
+            document.getElementById('constellations-count').textContent = constellationsCount;
+
+            // Set theme based on localStorage
+            const theme = localStorage.getItem('theme') || 'light';
+            if (theme === 'dark') {
+                document.body.classList.add('dark');
+                document.getElementById('side-window').classList.add('dark');
+                document.getElementById('main-content').classList.add('dark');
+                document.getElementById('toggle-theme').textContent = 'Switch to Light Mode';
+            }
+        });
+
+        // Toggle theme between light and dark modes
+        function toggleTheme() {
+            const body = document.body;
+            const sideWindow = document.getElementById('side-window');
+            const mainContent = document.getElementById('main-content');
+            const button = document.getElementById('toggle-theme');
+
+            if (body.classList.contains('dark')) {
+                body.classList.remove('dark');
+                sideWindow.classList.remove('dark');
+                mainContent.classList.remove('dark');
+                button.textContent = 'Switch to Dark Mode';
+                localStorage.setItem('theme', 'light');
+            } else {
+                body.classList.add('dark');
+                sideWindow.classList.add('dark');
+                mainContent.classList.add('dark');
+                button.textContent = 'Switch to Light Mode';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Function to change profile image
+        function changeProfileImage() {
+            const newImage = prompt("Enter the URL of the new profile image:");
+            if (newImage) {
+                document.getElementById('account-icon').style.backgroundImage = `url('${newImage}')`;
+                const user = JSON.parse(localStorage.getItem('user'));
+                user.profileImage = newImage;
+                localStorage.setItem('user', JSON.stringify(user));
+            }
+        }
+
+        // Function to show the report input section
+        function showReportInput() {
+            document.getElementById('report-container').style.display = 'block';
+        }
+
+        // Function to submit the report
+        function submitReport() {
+            const reportContent = document.getElementById('report-input').value;
+            if (!reportContent) {
+                alert('Please enter a report.');
+                return;
+            }
+
+            const user = JSON.parse(localStorage.getItem('user'));
+            console.log('User data from localStorage:', user); // Add this line for debugging
+            if (!user || !user.id) {
+                console.error('User is not logged in or information is missing:', user); // Add this line for debugging
+        
+                alert('User is not logged in or information is missing.');
+                return;
+            }
+
+            const reportData = {
+                report: reportContent,
+                id: user.id
+            };
+
+            // Send report data to backend
+            fetch('http://localhost:3002/submit-report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(reportData),
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                document.getElementById('report-input').value = ''; // Clear the input
+                document.getElementById('report-container').style.display = 'none';
+            })
+            .catch(error => {
+                console.error('Error submitting the report:', error);
+                alert('Error submitting the report.');
+            });
+        }
+
+        // Function to cancel the report input
+        function cancelReport() {
+            document.getElementById('report-container').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
