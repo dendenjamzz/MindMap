@@ -231,26 +231,63 @@
             let width = graphContainer.clientWidth || window.innerWidth * 0.8; // 80% of window width
             let height = graphContainer.clientHeight || window.innerHeight * 0.8; // 80% of window height
 
+            // Defensive defaults
+            data.nodes = Array.isArray(data.nodes) ? data.nodes : [];
+            data.links = Array.isArray(data.links) ? data.links : [];
+
+            console.log(`Nodes: ${data.nodes.length}, Links: ${data.links.length}`);
+
+            // Build a lookup map by node id so we can convert link endpoints to node objects
+            const nodeById = new Map();
+            data.nodes.forEach(n => {
+                // ensure id exists
+                if (!n.id && n.name) n.id = n.name;
+                nodeById.set(n.id, n);
+            });
+
+            // Normalize links: if endpoints are strings, replace with node objects (if available)
+            data.links.forEach(link => {
+                if (typeof link.source === 'string' || typeof link.source === 'number') {
+                    const s = nodeById.get(String(link.source));
+                    if (s) link.source = s;
+                }
+                if (typeof link.target === 'string' || typeof link.target === 'number') {
+                    const t = nodeById.get(String(link.target));
+                    if (t) link.target = t;
+                }
+            });
+
+            // Append missing nodes referenced by links (defensive)
+            data.links.forEach(link => {
+                if (link.source && !nodeById.has(link.source.id)) {
+                    nodeById.set(link.source.id, link.source);
+                    data.nodes.push(link.source);
+                }
+                if (link.target && !nodeById.has(link.target.id)) {
+                    nodeById.set(link.target.id, link.target);
+                    data.nodes.push(link.target);
+                }
+            });
+
             const svg = d3.select('#graph-container').append('svg')
                 .attr('width', width)
                 .attr('height', height)
                 .style('border', '1px solid black');
 
-                // Poziționare inițială pentru noduri (exemplu: constelație circulară)
+            // Poziționare inițială pentru noduri (exemplu: constelație circulară)
             data.nodes.forEach((node, i) => {
-                const angle = (i / data.nodes.length) * 2 * Math.PI; // Unghiul fiecărui nod
-                node.x = width / 2 + Math.cos(angle) * 200; // Poziționare pe cerc
-                node.y = height / 2 + Math.sin(angle) * 200;
+                const angle = (i / Math.max(1, data.nodes.length)) * 2 * Math.PI;
+                node.x = node.x || (width / 2 + Math.cos(angle) * 200);
+                node.y = node.y || (height / 2 + Math.sin(angle) * 200);
             });
 
             // Add force simulation
             const simulation = d3.forceSimulation(data.nodes)
-                .force('link', d3.forceLink(data.links).id(d => d.id).distance(100)) // Distanța dintre noduri conectate
-                .force('charge', d3.forceManyBody().strength(-50)) // Forță de respingere între noduri
-                .force('center', d3.forceCenter(width / 2, height / 2)) // Centrare pe canvas
-                .force('collision', d3.forceCollide().radius(50)) // Crește raza de coliziune pentru a evita suprapunerea
-                .force('radial', d3.forceRadial(300, width / 2, height / 2)); // Poziționare radială pentru aspect de constelație
-
+                .force('link', d3.forceLink(data.links).id(d => d.id).distance(100))
+                .force('charge', d3.forceManyBody().strength(-50))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(50))
+                .force('radial', d3.forceRadial(300, width / 2, height / 2));
 
             // Draw links (connections between nodes)
             const link = svg.append('g')
@@ -259,49 +296,43 @@
                 .data(data.links)
                 .enter().append('line')
                 .attr('stroke', '#999')
-                .attr('stroke-width', 1.5);
+                .attr('stroke-width', d => d && (d.relation ? 2 : 1.5)); // make them visible
 
             // Draw nodes (these are the words)
             const node = svg.append('g')
                 .attr('class', 'nodes')
-                .selectAll('g') // Create a group for each node
+                .selectAll('g')
                 .data(data.nodes)
-                .enter().append('g') // Append a group for each node
+                .enter().append('g')
                 .call(d3.drag()
                     .on('start', dragstarted)
                     .on('drag', dragged)
                     .on('end', dragended));
 
-            // Desenează stele în loc de cercuri
             node.append('path')
-                .attr('d', d3.symbol().type(d3.symbolStar).size(800)) // 800 = mărimea stelei, ajustează după preferință
+                .attr('d', d3.symbol().type(d3.symbolStar).size(800))
                 .attr('fill', 'yellow')
                 .attr('stroke', 'gold')
                 .attr('stroke-width', 2);
 
-            // Append text to the groups
             node.append('text')
-                .attr('dy', -20) // Position text above the node
+                .attr('dy', -20)
                 .attr('text-anchor', 'middle')
                 .attr('font-size', '12px')
                 .attr('fill', '#333')
-                .text(d => d.id); // Add the word text to each node
+                .text(d => d.id);
 
             // Simulation tick
             simulation.on('tick', () => {
-            // Update positions of links
-             link
-                .attr('x1', d => d.source.x)
-                .attr('y1', d => d.source.y)
-                .attr('x2', d => d.target.x)
-                .attr('y2', d => d.target.y);
+                // Update positions of links
+                link
+                    .attr('x1', d => d.source && d.source.x)
+                    .attr('y1', d => d.source && d.source.y)
+                    .attr('x2', d => d.target && d.target.x)
+                    .attr('y2', d => d.target && d.target.y);
 
                 // Update positions of nodes and text
-                 node.attr('transform', d =>//{
-                    // Limitează nodurile în interiorul canvasului
-                    //d.x = Math.max(20, Math.min(width - 20, d.x)); // 10 este raza nodului
-                    //d.y = Math.max(20, Math.min(height - 20, d.y));
-                    `translate(${d.x},${d.y})`);
+                node.attr('transform', d => `translate(${d.x},${d.y})`);
             });
 
             // Drag events
@@ -322,7 +353,7 @@
                 d.fy = null;
             }
         }
-
+        
         function updatePanels(data) {
             const careersList = document.getElementById('careers-list');
             const wordsList = document.getElementById('words-list');
