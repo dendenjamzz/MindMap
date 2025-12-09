@@ -157,6 +157,93 @@ def get_conceptnet_data(word):
     except Exception as e:
         print(f"Unexpected error in get_conceptnet_data('{word}'): {e}")
         return ([], [])
+
+
+def get_family_vocab(word):
+    """
+    Return related family vocabulary for `word` (things that come from it, parts, products).
+    Uses ConceptNet edges filtered for relations like HasA, PartOf, UsedFor, DerivedFrom,
+    and WordNet hyponyms/meronyms/derivational forms as a fallback.
+    Returns (family_list, relationship_links).
+    """
+    family = set()
+    relationships = []
+    w = (word or "").strip().lower()
+    if not w:
+        return ([], [])
+
+    try:
+        # ConceptNet query for more specific relations
+        resource = quote(w.replace(" ", "_"))
+        url = f"{CONCEPTNET_API_URL}/query?start=/c/en/{resource}&limit=200"
+        try:
+            resp = requests.get(url, timeout=6)
+            resp.raise_for_status()
+            data = resp.json()
+            edges = data.get("edges", [])[:200]
+            for edge in edges:
+                rel_raw = edge.get("rel", {}).get("label", "")
+                rel_l = (rel_raw or "").lower()
+                start_label = edge.get("start", {}).get("label", "")
+                end_label = edge.get("end", {}).get("label", "")
+
+                # Candidate targets are start/end labels not equal to the word
+                for target_raw, other_raw in ((start_label, end_label), (end_label, start_label)):
+                    if not target_raw or not other_raw:
+                        continue
+                    target = clean_label(target_raw)
+                    other = clean_label(other_raw)
+                    if not target or target == w:
+                        continue
+                    if not any(c.isalpha() for c in target):
+                        continue
+
+                    # Accept relations indicative of product/part/derivative or usage
+                    rel_tokens = ["hasa", "has a", "has", "part", "made", "made of", "used", "used for", "cause", "derived", "derived from", "isa", "instance", "form", "produce", "product", "produce", "substance", "meronym", "meronymous", "material"]
+                    if any(tok in rel_l for tok in rel_tokens) or any(tok in rel_l for tok in ["has", "part", "made", "used"]):
+                        family.add(other)
+                        relationships.append({"source": w, "target": other, "relation": rel_raw or "related"})
+        except Exception:
+            # ConceptNet may fail — continue to WordNet fallbacks
+            pass
+
+        # WordNet-based fallbacks: hyponyms (specific kinds), meronyms (parts/substances), derivational forms
+        try:
+            synsets = wordnet.synsets(w)
+            for s in synsets[:6]:
+                # Hyponyms (kinds of the word)
+                for hy in s.hyponyms()[:10]:
+                    for l in hy.lemmas()[:6]:
+                        t = l.name().replace("_", " ").lower()
+                        if t and t != w:
+                            family.add(t)
+                            relationships.append({"source": w, "target": t, "relation": "is a"})
+
+                # Part meronyms and substance meronyms (things made of / parts)
+                for pm in list(s.part_meronyms())[:10] + list(s.substance_meronyms())[:10]:
+                    for l in pm.lemmas()[:8]:
+                        t = l.name().replace("_", " ").lower()
+                        if t and t != w:
+                            family.add(t)
+                            relationships.append({"source": w, "target": t, "relation": "part of"})
+
+                # Derivationally related forms (e.g., milk -> milky? or derive related words)
+                for l in s.lemmas()[:8]:
+                    try:
+                        for dr in l.derivationally_related_forms()[:8]:
+                            t = dr.name().replace("_", " ").lower()
+                            if t and t != w:
+                                family.add(t)
+                                relationships.append({"source": w, "target": t, "relation": "derivative"})
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    except Exception as e:
+        print(f"get_family_vocab failed for '{word}': {e}")
+
+    return (sorted(family), relationships)
         
 def generate_economic_tags(words):
     tags = []
@@ -218,36 +305,111 @@ def fetch_wikidata_professions(term):
 
 def extract_professions_from_wordnet(word):
     """
-    Explore WordNet synsets/hyponyms/lemmas to find tokens that look like professions
-    (heuristic: common profession suffixes or noun.person lexnames).
+    Extract profession/occupation suggestions from multiple sources:
+    1. WordNet lemmas from noun.person synsets
+    2. Related category words that suggest professions
+    Returns list of unique professional terms
     """
     profs = set()
+    
+    profession_suffixes = ("er", "ist", "ian", "or", "ant", "ent", "man", "woman", 
+                          "maker", "smith", "wright", "monger", "keeper", "guard", "master")
+    profession_keywords = ("professional", "specialist", "expert", "practitioner", "technician",
+                          "officer", "agent", "conductor", "performer", "consultant", "worker")
+    
+    # Blacklist of non-professions
+    blacklist = {"person", "people", "human", "entity", "plant", "cross-dresser", "cow", 
+                "appointment", "substance", "object", "thing", "item", "artifact",
+                "masturbator", "onanist", "violator", "perpetrator", "deviant", "abuser",
+                "heretic", "iconoclast", "miscreant", "traitor", "charlatan", "pretender",
+                "idler", "loafer", "dunce", "blockhead", "fool", "simpleton"}
+    
+    word_clean = word.lower().strip()
+    if not word_clean or len(word_clean) < 2:
+        return []
+    
     try:
-        synsets = wordnet.synsets(word)
-        # Also consider synsets for 'person' related lexnames
+        synsets = wordnet.synsets(word_clean)
+        
         for syn in synsets:
-            # check if this synset or its hypernyms/hyponyms contain profession-like lemmas
-            candidates = [syn] + syn.hyponyms() + syn.hypernyms()
-            for c in candidates:
-                # prefer lemmas that are nouns and look like role names
-                for l in c.lemmas():
-                    name = l.name().replace("_", " ").lower()
-                    if len(name) < 3:
-                        continue
-                    # simple suffix heuristics for professions
-                    if any(name.endswith(s) for s in ("er", "ist", "ian", "or", "ant", "ent", "man", "woman", "maker")):
-                        profs.add(name)
-                # also inspect lexname (e.g., 'noun.person') to surface person types
-                try:
-                    lex = c.lexname()
-                    if "person" in lex:
-                        for l in c.lemmas():
-                            profs.add(l.name().replace("_", " ").lower())
-                except Exception:
-                    pass
+            try:
+                # Check if this is a person-type synset
+                lex = syn.lexname()
+                if "noun.person" in lex:
+                    # Extract lemmas from this synset - more inclusive filtering
+                    for l in syn.lemmas():
+                        name = l.name().replace("_", " ").strip().lower()
+                        if len(name) < 2 or name in blacklist:
+                            continue
+                        
+                        # Accept if has profession suffix OR has profession keyword
+                        has_suffix = any(name.endswith(suffix) for suffix in profession_suffixes)
+                        has_keyword = any(kw in name for kw in profession_keywords)
+                        
+                        if has_suffix or has_keyword:
+                            profs.add(name.title())
+            except:
+                pass
+                
+            # Also check hyponyms (more specific person types)
+            try:
+                for hypo in syn.hyponyms()[:5]:
+                    if "noun.person" in hypo.lexname():
+                        for l in hypo.lemmas():
+                            name = l.name().replace("_", " ").strip().lower()
+                            if len(name) < 2 or name in blacklist:
+                                continue
+                            
+                            has_suffix = any(name.endswith(suffix) for suffix in profession_suffixes)
+                            has_keyword = any(kw in name for kw in profession_keywords)
+                            
+                            if has_suffix or has_keyword:
+                                profs.add(name.title())
+            except:
+                pass
     except Exception as e:
-        print(f"WordNet profession extraction failed for '{word}': {e}")
-    return [p.title() for p in profs]
+        pass
+    
+    # Expand with category-based professions
+    category_profession_map = {
+        "food": ["Chef", "Cook", "Baker", "Nutritionist", "Food Scientist"],
+        "plant": ["Botanist", "Gardener", "Florist", "Horticulturist"],
+        "animal": ["Zookeeper", "Veterinarian", "Animal Handler"],
+        "art": ["Artist", "Painter", "Sculptor", "Designer"],
+        "music": ["Musician", "Composer", "Conductor"],
+        "sport": ["Athlete", "Coach", "Trainer"],
+        "science": ["Scientist", "Researcher", "Technician"],
+        "medicine": ["Doctor", "Physician", "Nurse"],
+        "law": ["Lawyer", "Judge", "Attorney"],
+        "business": ["Entrepreneur", "Manager", "Executive"],
+        "education": ["Teacher", "Professor", "Educator"],
+        "technology": ["Programmer", "Engineer", "Developer"],
+    }
+    
+    if word_clean in category_profession_map:
+        profs.update(category_profession_map[word_clean])
+    
+    # Final validation: ensure each candidate has at least one noun synset
+    # that is person-related (to avoid demonyms, adjectives, or unrelated nouns)
+    valid_profs = []
+    try:
+        for p in profs:
+            p_clean = p.lower().strip()
+            good = False
+            try:
+                for syn in wordnet.synsets(p_clean, pos='n'):
+                    if 'person' in syn.lexname():
+                        good = True
+                        break
+            except:
+                pass
+            if good:
+                valid_profs.append(p)
+    except:
+        # If validation fails for any reason, fallback to original list
+        valid_profs = list(profs)
+
+    return sorted(valid_profs)[:10]
 
 
 # ✅ Main Route
@@ -258,6 +420,9 @@ def process_words():
         if not data or "words" not in data:
             return jsonify({"error": "No words provided"}), 400
 
+        # API toggle: whether to produce inferred links server-side (default: true)
+        inferred_enabled = bool(data.get('inferred', True))
+
         input_words = [word.strip().lower() for word in data.get("words", "").split(",")]
         nodes, links = [], []
         existing_nodes = set()
@@ -266,58 +431,113 @@ def process_words():
         max_depth = 1  # Limit graph expansion to 1 level
 
         def process_word(word, depth=0):
-            if word in processed_words or depth > max_depth:
+            """Process input word: add node and get direct relationships only (no expansion)"""
+            if word in processed_words:
                 return
             processed_words.add(word)
 
             translated_word = detect_and_translate(word).lower()
-
+            
+            # Get metadata for this word (categories for career/economy panels)
             wordnet_cats = get_wordnet_categories(translated_word)
-            conceptnet_cats, conceptnet_links = get_conceptnet_data(translated_word)
-
-            # Debugging: Log the categories and links
-            print(f"Processing word: {word}, Translated: {translated_word}")
-            print(f"WordNet categories: {wordnet_cats}")
-            print(f"ConceptNet categories: {conceptnet_cats}")
-            print(f"ConceptNet links: {conceptnet_links}")
-
-           
+            conceptnet_cats, _ = get_conceptnet_data(translated_word)  # Don't add links from conceptnet
+            
             combined_cats = list(set(wordnet_cats + conceptnet_cats))
             combined_cats = [c for c in combined_cats if c and c.lower() != translated_word.lower()]
-
-            # Add found categories to the global set for broader career/economy detection
+            generic_exclude = {"person", "people", "human", "entity", "thing", "object"}
+            combined_cats = [c for c in combined_cats if c.lower() not in generic_exclude]
+            
+            # Add to global categories
             for c in combined_cats:
                 if isinstance(c, str) and c.strip():
                     all_categories.add(c.lower())
 
-
+            # Add only the input word itself as a node
             if translated_word not in existing_nodes:
                 nodes.append({
                     "id": translated_word,
                     "original": word,
-                    "categories": combined_cats
+                    "categories": combined_cats[:3]  # Limit to 3 categories
                 })
                 existing_nodes.add(translated_word)
-
-            # Add ConceptNet links
-            for link in conceptnet_links:
-                if link["target"] not in processed_words:
-                    links.append(link)
-
-            # Recursively process linked words (limited by depth)
-            for link in conceptnet_links:
-                process_word(link["target"], depth + 1)
 
         # Process each input word
         for original_word in input_words:
             process_word(original_word)
 
-        # Add linked nodes if not yet in node list
-        linked_words = {l["source"] for l in links} | {l["target"] for l in links}
-        for lw in linked_words:
-            if lw not in existing_nodes:
-                nodes.append({"id": lw, "categories": ["auto-generated"]})
-                existing_nodes.add(lw)
+        # Only server-side inference adds links between input words
+
+        # --- Server-side inference pass (only if enabled) ---
+        if inferred_enabled:
+            try:
+                # normalize node id lookup
+                node_ids = {n['id'].lower(): n for n in nodes}
+                # helper to add a link uniquely into links list
+                seen_triples = {(l['source'], l['target'], l.get('relation', '')) for l in links}
+                def add_link_once(s, t, rel):
+                    if not s or not t:
+                        return
+                    sL = s.strip().lower(); tL = t.strip().lower()
+                    if sL == tL:
+                        return
+                    key = (sL, tL, rel or '')
+                    if key in seen_triples:
+                        return
+                    seen_triples.add(key)
+                    links.append({'source': sL, 'target': tL, 'relation': rel or 'inferred'})
+
+                # classification heuristics: simple keyword lists + WordNet hints
+                animal_kw = set(['animal','mammal','cow','pig','chicken','sheep','goat','horse','bovine','cattle','swine','hen','dog','cat','fish'])
+                plant_kw = set(['plant','flora','tree','grass','weed','herb','crop','leaf','fodder','hay','grassland','algae'])
+                product_kw = set(['product','food','dairy','meat','milk','cheese','wool','egg','honey','leather','beef','pork','butter'])
+
+                animals = set(); plants = set(); products = set()
+                for n in nodes:
+                    nid = (n.get('id') or '').strip().lower()
+                    cats = [c.lower() for c in n.get('categories', []) if isinstance(c, str)]
+                    text = nid + ' ' + ' '.join(cats)
+                    # keyword match
+                    if any(k in text for k in animal_kw): animals.add(nid)
+                    if any(k in text for k in plant_kw): plants.add(nid)
+                    if any(k in text for k in product_kw): products.add(nid)
+                    # WordNet hint: check lexname categories
+                    try:
+                        wcats = get_wordnet_categories(nid)
+                        for wc in wcats:
+                            if wc and 'animal' in wc: animals.add(nid)
+                            if wc and 'plant' in wc: plants.add(nid)
+                            if wc and ('food' in wc or 'artifact' in wc or 'substance' in wc): products.add(nid)
+                    except Exception:
+                        pass
+
+                # Add inferred plant->animal and animal->product links
+                for pl in plants:
+                    for an in animals:
+                        add_link_once(pl, an, 'eaten_by')
+                for an in animals:
+                    for p in products:
+                        add_link_once(an, p, 'produces')
+
+                # transitive plant->product via animal
+                for pl in plants:
+                    for p in products:
+                        # check if exists some animal linking pl->animal and animal->p
+                        has_middle = False
+                        for an in animals:
+                            if any((l['source'].lower() == pl and l['target'].lower() == an) for l in links) and any((l['source'].lower() == an and l['target'].lower() == p) for l in links):
+                                has_middle = True; break
+                        if has_middle:
+                            add_link_once(pl, p, 'contributes')
+
+                # ensure inferred links produce nodes if missing
+                for l in list(links):
+                    for side in ('source','target'):
+                        sid = (l.get(side) or '').strip().lower()
+                        if sid and sid not in existing_nodes and sid not in {"person","people","human","entity","thing","object"}:
+                            nodes.append({'id': sid, 'categories': ['auto-generated']})
+                            existing_nodes.add(sid)
+            except Exception as e:
+                print('Server-side inference error:', e)
 
         # Remove duplicate links and self-loops
         links = [l for l in links if l["source"] != l["target"]]
@@ -328,50 +548,93 @@ def process_words():
         user_input_words = [n["id"] for n in nodes if "auto-generated" not in n.get("categories", [])]
         economy_tags = generate_economic_tags(user_input_words)
         trendy_tags = generate_trendy_topics(user_input_words)
-        # Broader career detection: match category words and node ids against career keywords
-        career_keywords = [
-            "person","profession","occupation","job","role","worker","specialist",
-            "engineer","doctor","teacher","lawyer","nurse","artist","scientist",
-            "manager","developer","programmer","chef","driver","farmer","mechanic",
-            "designer","sales","consultant","technician","producer","writer","musician"
-        ]
-
-        career_tags_set = set()
-        for cat in all_categories:
-            if any(kw in cat for kw in career_keywords):
-                career_tags_set.add(cat)
-
-        # also check node ids (some nodes may be direct profession names)
-        for n in nodes:
-            nid = n.get("id", "").lower()
-            for kw in career_keywords:
-                if kw in nid:
-                    career_tags_set.add(nid)
-                    break
-
-        career_tags = sorted(career_tags_set)
         
-        # Filtrare noduri neconectate
-        #connected_nodes = {link["source"] for link in links} | {link["target"] for link in links}
-        #nodes = [node for node in nodes if node["id"] in connected_nodes]
+        # Helper: Vet profession candidate using WordNet definitions and Wikidata
+        def is_vetted_profession(candidate):
+            """Return True if `candidate` looks like a profession.
+            Checks:
+            - WordNet noun synsets exist and any synset definition contains occupation hints
+            - OR Wikidata search returns description containing occupation hints
+            """
+            try:
+                cand = (candidate or "").strip().lower()
+                if not cand:
+                    return False
 
-        response = {
-            "nodes": [{"id": n["id"], "categories": n["categories"]} for n in nodes],
-            "links": links,
-            "words": input_words,  # Original input words
-            "careers": career_tags,  # Career-related categories
-            "economy": economy_tags,  # Economic tags
-            "trends": trendy_tags  # Trendy topics
+                # Check WordNet synsets for noun.person-like definitions
+                try:
+                    syns = wordnet.synsets(cand, pos='n')
+                    for s in syns:
+                        lex = s.lexname().lower()
+                        defn = (s.definition() or "").lower()
+                        if 'person' in lex and any(k in defn for k in ["occupation", "profession", "one who", "person who", "works as", "job", "practitioner", "specialist"]):
+                            return True
+                except Exception:
+                    pass
+
+                # Fallback: query Wikidata for this label and see if description suggests an occupation
+                try:
+                    wd = fetch_wikidata_professions(candidate)
+                    if wd:
+                        return True
+                except Exception:
+                    pass
+
+            except Exception:
+                return False
+            return False
+
+        # Career detection: strict whitelist mode — only include curated category professions
+        career_set = []
+        category_profession_map = {
+            "food": ["Chef", "Cook", "Baker", "Nutritionist", "Food Scientist"],
+            "plant": ["Botanist", "Gardener", "Florist", "Horticulturist"],
+            "animal": ["Zookeeper", "Veterinarian", "Animal Handler"],
+            "art": ["Artist", "Painter", "Sculptor", "Designer"],
+            "music": ["Musician", "Composer", "Conductor"],
+            "sport": ["Athlete", "Coach", "Trainer"],
+            "science": ["Scientist", "Researcher", "Technician"],
+            "medicine": ["Doctor", "Physician", "Nurse"],
+            "law": ["Lawyer", "Judge", "Attorney"],
+            "business": ["Entrepreneur", "Manager", "Executive"],
+            "education": ["Teacher", "Professor", "Educator"],
+            "technology": ["Programmer", "Engineer", "Developer"],
         }
 
-        import json
-        print("Flask response:", json.dumps(response, indent=2))
+        added = set()
+        for cat in sorted(list(all_categories)):
+            cat_l = (cat or "").strip().lower()
+            if cat_l in category_profession_map:
+                for p in category_profession_map[cat_l]:
+                    if p.lower() not in added:
+                        career_set.append(p)
+                        added.add(p.lower())
+
+        # If we have no category-based professions, fall back to a conservative default list
+        if not career_set:
+            fallback = ["Consultant", "Specialist", "Technician", "Operator"]
+            career_set.extend(fallback)
+
+        career_tags = career_set[:15]
+
+        # Final safety filter: remove any generic/human tokens that slipped through
+        generic_exclude_ids = {"person", "people", "human", "entity", "thing", "object"}
+        links = [l for l in links if (l.get("source") or "").lower() not in generic_exclude_ids and (l.get("target") or "").lower() not in generic_exclude_ids]
+        nodes = [n for n in nodes if (n.get("id") or "").lower() not in generic_exclude_ids]
+
+        response = {
+            "nodes": [{"id": n["id"], "categories": n.get("categories", [])} for n in nodes],
+            "links": links,
+            "words": input_words,
+            "careers": career_tags,
+            "economy": economy_tags,
+            "trends": trendy_tags
+        }
 
         return jsonify(response)
 
     except Exception as e:
-        print(f"Error in /process: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)

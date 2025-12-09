@@ -1,0 +1,20 @@
+ * Serving Flask app 'flask_server'
+ * Debug mode: off
+Detected language for 'cow': pl
+ConceptNet unavailable for 'cow', falling back to WordNet heuristics
+Detected language for 'grass': pt
+ConceptNet unavailable for 'grass', falling back to WordNet heuristics
+Detected language for 'milk': et
+ConceptNet unavailable for 'milk', falling back to WordNet heuristics
+Detected language for 'cow': pl
+ConceptNet unavailable for 'cow', falling back to WordNet heuristics
+Detected language for 'grass': pt
+ConceptNet unavailable for 'grass', falling back to WordNet heuristics
+Detected language for 'milk': et
+ConceptNet unavailable for 'milk', falling back to WordNet heuristics
+Detected language for 'cow': pl
+ConceptNet unavailable for 'cow', falling back to WordNet heuristics
+Detected language for 'grass': pt
+ConceptNet unavailable for 'grass', falling back to WordNet heuristics
+Detected language for 'milk': et
+ConceptNet unavailable for 'milk', falling back to WordNet heuristics

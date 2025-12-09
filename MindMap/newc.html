@@ -61,6 +61,23 @@
             resize: none;
             transition: border-color 0.2s;
         }
+        .inferred-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #a678b4;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        /* Simple 3-color link styling */
+        #graph-container svg .links line { stroke: #999; stroke-width: 2; }
+        #graph-container svg .links line[data-relation="explicit"] { stroke: #999; }
+        #graph-container svg .links line[data-relation="family"] { stroke: #ff88b6; }
+        #graph-container svg .links line[data-relation*="eaten_by"],
+        #graph-container svg .links line[data-relation*="produces"],
+        #graph-container svg .links line[data-relation*="contributes"] { stroke: #4caf50; }
+        
         textarea:focus {
             border-color: #ffb3c6;
             outline: none;
@@ -92,7 +109,80 @@
             box-shadow: 0 8px 32px rgba(255, 182, 193, 0.10);
             position: relative;
             margin-bottom: 20px;
+            resize: both;
+            overflow: hidden;
         }
+        .resize-hint {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            background: rgba(255,255,255,0.85);
+            color: #a678b4;
+            font-size: 12px;
+            padding: 6px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,182,193,0.6);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            z-index: 11;
+            pointer-events: none;
+        }
+        .resize-handle {
+            position: absolute;
+            right: 8px;
+            bottom: 8px;
+            width: 22px;
+            height: 22px;
+            background: linear-gradient(135deg, rgba(255,183,197,0.95), rgba(163,206,241,0.95));
+            border-radius: 6px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            cursor: se-resize;
+            z-index: 11;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #fff;
+            user-select: none;
+            pointer-events: none;
+        }
+        .resize-handle::after {
+            content: "\00A0\00A0";
+            width: 10px;
+            height: 10px;
+            border-right: 2px solid rgba(255,255,255,0.9);
+            border-bottom: 2px solid rgba(255,255,255,0.9);
+            transform: rotate(45deg);
+            display: inline-block;
+        }
+        .legend {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(255,255,255,0.94);
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            z-index: 10;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: #666;
+        }
+        .legend-line {
+            display: inline-block;
+            width: 20px;
+            height: 2px;
+        }
+        .legend-line.gray { background-color: #999; }
+        .legend-line.pink { background-color: #ff88b6; }
+        .legend-line.green { background-color: #4caf50; }
+        
         #panel-container {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -122,16 +212,7 @@
         ul {
             padding-left: 18px;
         }
-        .legend-item {
-            margin: 5px 0;
-        }
-        .legend-color {
-            width: 20px;
-            height: 20px;
-            display: inline-block;
-            margin-right: 5px;
-        }
-        /* Nod stea hover effect */
+
         .nodes path {
             transition: filter 0.2s, transform 0.2s;
             filter: drop-shadow(0 0 0px #ffb3c6);
@@ -147,18 +228,29 @@
         <h1>Word Constellation</h1>
         <p>
             Write up to <b>10 words</b> separated by comma.<br>
-            Write every word correct (ex: <i>cat, dog, apple</i>).<br>
-            The default language is <b>english</b>, but you can use any other language.
+            Example: <i>cow, grass, milk</i><br>
             <span style="color:#e57373;">
-                For Romanian, use diacritics (ex: <i>pisică, pește</i>) for best results.<br>
-                If a word is not shown, try writing it in English or with diacritics.<br>
-            <b>All words will be shown, even if they have no connections.</b>
+                All words will show as stars, connected by simple lines that show relationships.
             </span>
         </p>
         <textarea id="words-input" placeholder="Enter words separated by commas"></textarea>
+        <div class="inferred-toggle">
+            <input type="checkbox" id="inferred-toggle" checked />
+            <label for="inferred-toggle">Show inferred relationships</label>
+        </div>
         <button id="submit-button">Submit</button>
     </div>
-    <div id="graph-container"></div>
+
+    <div id="graph-container">
+        <div class="resize-hint" aria-hidden="true">Drag to resize ⤢</div>
+        <div class="resize-handle" aria-hidden="true" title="Drag to resize"></div>
+        <div class="legend">
+            <div class="legend-item"><div class="legend-line gray"></div> Explicit</div>
+            <div class="legend-item"><div class="legend-line pink"></div> Family</div>
+            <div class="legend-item"><div class="legend-line green"></div> Inferred</div>
+        </div>
+    </div>
+
     <div id="panel-container">
         <div id="careers-panel" class="panel">
             <h3>Suggested Careers</h3>
@@ -180,41 +272,33 @@
 
     <script src="https://d3js.org/d3.v6.min.js"></script>
     <script>
-         document.getElementById('submit-button').addEventListener('click', async function () {
+        document.getElementById('submit-button').addEventListener('click', async function () {
             const wordsRaw = document.getElementById('words-input').value.trim();
             if (!wordsRaw) {
                 alert('Please enter some words.');
                 return;
             }
-            // Limit to 10 words
             const wordsArr = wordsRaw.split(',').map(w => w.trim()).filter(w => w.length > 0);
             if (wordsArr.length > 10) {
                 alert('Please enter a maximum of 10 words.');
                 return;
             }
-            const words = wordsArr.join(','); // Reconstruct string for backend
+            const words = wordsArr.join(',');
+            const inferred = document.getElementById('inferred-toggle').checked;
 
             try {
                 const response = await fetch('http://localhost:3002/process-words', {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({ words }),
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ words, inferred }),
                 });
 
-                const text = await response.text();
-                try {
-                    const data = JSON.parse(text);
-                    if (response.ok) {
-                        renderGraph(data);
-                        updatePanels(data);
-                    } else {
-                        alert(data.error || 'Failed to process words.');
-                    }
-                } catch (jsonError) {
-                    alert('Server response is not valid JSON.');
+                const data = await response.json();
+                if (response.ok) {
+                    renderGraph(data);
+                    updatePanels(data);
+                } else {
+                    alert(data.error || 'Failed to process words.');
                 }
             } catch (error) {
                 alert('An error occurred. Please try again.');
@@ -222,83 +306,92 @@
         });
 
         function renderGraph(data) {
-            // Șterge SVG-ul existent înainte de a crea unul nou
             d3.select('#graph-container').select('svg').remove();
-            // Log data for debugging
-            console.log('Rendering graph with data:', data);
+            console.log(`Nodes: ${data.nodes.length}, Links: ${data.links.length}`);
 
             const graphContainer = document.getElementById('graph-container');
-            let width = graphContainer.clientWidth || window.innerWidth * 0.8; // 80% of window width
-            let height = graphContainer.clientHeight || window.innerHeight * 0.8; // 80% of window height
+            let width = graphContainer.clientWidth || 1200;
+            let height = graphContainer.clientHeight || 800;
 
-            // Defensive defaults
             data.nodes = Array.isArray(data.nodes) ? data.nodes : [];
             data.links = Array.isArray(data.links) ? data.links : [];
 
-            console.log(`Nodes: ${data.nodes.length}, Links: ${data.links.length}`);
-
-            // Build a lookup map by node id so we can convert link endpoints to node objects
+            // Build node lookup and normalize links
             const nodeById = new Map();
             data.nodes.forEach(n => {
-                // ensure id exists
                 if (!n.id && n.name) n.id = n.name;
-                nodeById.set(n.id, n);
+                const key = String(n.id).toLowerCase();
+                nodeById.set(key, n);
             });
 
-            // Normalize links: if endpoints are strings, replace with node objects (if available)
-            data.links.forEach(link => {
+            data.links = data.links.filter(link => {
+                let sourceNode = null, targetNode = null;
+
                 if (typeof link.source === 'string' || typeof link.source === 'number') {
-                    const s = nodeById.get(String(link.source));
-                    if (s) link.source = s;
+                    const sKey = String(link.source).toLowerCase();
+                    sourceNode = nodeById.get(sKey);
+                    if (!sourceNode) {
+                        sourceNode = { id: String(link.source), categories: [] };
+                        nodeById.set(sKey, sourceNode);
+                        data.nodes.push(sourceNode);
+                    }
+                } else if (link.source && typeof link.source === 'object') {
+                    sourceNode = nodeById.get(String(link.source.id).toLowerCase()) || link.source;
                 }
-                if (typeof link.target === 'string' || typeof link.target === 'number') {
-                    const t = nodeById.get(String(link.target));
-                    if (t) link.target = t;
-                }
-            });
 
-            // Append missing nodes referenced by links (defensive)
-            data.links.forEach(link => {
-                if (link.source && !nodeById.has(link.source.id)) {
-                    nodeById.set(link.source.id, link.source);
-                    data.nodes.push(link.source);
+                if (typeof link.target === 'string' || typeof link.target === 'number') {
+                    const tKey = String(link.target).toLowerCase();
+                    targetNode = nodeById.get(tKey);
+                    if (!targetNode) {
+                        targetNode = { id: String(link.target), categories: [] };
+                        nodeById.set(tKey, targetNode);
+                        data.nodes.push(targetNode);
+                    }
+                } else if (link.target && typeof link.target === 'object') {
+                    targetNode = nodeById.get(String(link.target.id).toLowerCase()) || link.target;
                 }
-                if (link.target && !nodeById.has(link.target.id)) {
-                    nodeById.set(link.target.id, link.target);
-                    data.nodes.push(link.target);
+
+                if (sourceNode && targetNode && sourceNode.id !== targetNode.id) {
+                    link.source = sourceNode;
+                    link.target = targetNode;
+                    return true;
                 }
+                return false;
             });
 
             const svg = d3.select('#graph-container').append('svg')
                 .attr('width', width)
                 .attr('height', height)
-                .style('border', '1px solid black');
+                .style('display', 'block')
+                .style('width', '100%')
+                .style('height', '100%');
 
-            // Poziționare inițială pentru noduri (exemplu: constelație circulară)
+            // Initial positions
             data.nodes.forEach((node, i) => {
                 const angle = (i / Math.max(1, data.nodes.length)) * 2 * Math.PI;
-                node.x = node.x || (width / 2 + Math.cos(angle) * 200);
-                node.y = node.y || (height / 2 + Math.sin(angle) * 200);
+                node.x = width / 2 + Math.cos(angle) * 200;
+                node.y = height / 2 + Math.sin(angle) * 200;
             });
 
-            // Add force simulation
+            // Force simulation
             const simulation = d3.forceSimulation(data.nodes)
-                .force('link', d3.forceLink(data.links).id(d => d.id).distance(100))
-                .force('charge', d3.forceManyBody().strength(-50))
+                .force('link', d3.forceLink(data.links).id(d => d.id).distance(120).strength(0.9))
+                .force('charge', d3.forceManyBody().strength(-40))
                 .force('center', d3.forceCenter(width / 2, height / 2))
-                .force('collision', d3.forceCollide().radius(50))
-                .force('radial', d3.forceRadial(300, width / 2, height / 2));
+                .force('collision', d3.forceCollide().radius(48))
+                .velocityDecay(0.8)
+                .alphaDecay(0.04);
 
-            // Draw links (connections between nodes)
+            // Draw links
             const link = svg.append('g')
                 .attr('class', 'links')
                 .selectAll('line')
                 .data(data.links)
                 .enter().append('line')
-                .attr('stroke', '#999')
-                .attr('stroke-width', d => d && (d.relation ? 2 : 1.5)); // make them visible
+                .attr('data-relation', d => (d && d.relation) ? d.relation : 'explicit')
+                .attr('stroke-linecap', 'round');
 
-            // Draw nodes (these are the words)
+            // Draw nodes
             const node = svg.append('g')
                 .attr('class', 'nodes')
                 .selectAll('g')
@@ -324,16 +417,59 @@
 
             // Simulation tick
             simulation.on('tick', () => {
-                // Update positions of links
                 link
-                    .attr('x1', d => d.source && d.source.x)
-                    .attr('y1', d => d.source && d.source.y)
-                    .attr('x2', d => d.target && d.target.x)
-                    .attr('y2', d => d.target && d.target.y);
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
 
-                // Update positions of nodes and text
+                const padding = 28;
+                data.nodes.forEach(d => {
+                    d.x = Math.max(padding, Math.min(width - padding, d.x));
+                    d.y = Math.max(padding, Math.min(height - padding, d.y));
+                });
+
                 node.attr('transform', d => `translate(${d.x},${d.y})`);
             });
+
+            // Pre-run ticks for stable initial layout
+            for (let i = 0; i < 40; i++) simulation.tick();
+            link
+                .attr('x1', d => d.source.x)
+                .attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x)
+                .attr('y2', d => d.target.y);
+            node.attr('transform', d => `translate(${d.x},${d.y})`);
+            simulation.alpha(0);
+
+            // ResizeObserver
+            const ro = new ResizeObserver(entries => {
+                for (let entry of entries) {
+                    const cr = entry.contentRect;
+                    const newW = Math.round(cr.width);
+                    const newH = Math.round(cr.height);
+                    if (newW > 0 && newH > 0 && (newW !== width || newH !== height)) {
+                        width = newW;
+                        height = newH;
+                        svg.attr('width', width).attr('height', height);
+                        simulation.force('center', d3.forceCenter(width / 2, height / 2));
+                        simulation.alpha(0.12).restart();
+                    }
+                }
+            });
+            ro.observe(graphContainer);
+
+            // Auto-hide resize hint
+            try {
+                const hint = graphContainer.querySelector('.resize-hint');
+                if (hint) {
+                    hint.style.transition = 'opacity 0.45s';
+                    hint.style.opacity = '1';
+                    setTimeout(() => { hint.style.opacity = '0.08'; }, 3500);
+                    graphContainer.addEventListener('mouseenter', () => { hint.style.opacity = '1'; });
+                    graphContainer.addEventListener('mouseleave', () => { hint.style.opacity = '0.08'; });
+                }
+            } catch (e) {}
 
             // Drag events
             function dragstarted(event, d) {
@@ -343,74 +479,48 @@
             }
 
             function dragged(event, d) {
-                d.fx = event.x;
-                d.fy = event.y;
+                const pt = d3.pointer(event, svg.node());
+                d.fx = Math.max(10, Math.min(width - 10, pt[0]));
+                d.fy = Math.max(10, Math.min(height - 10, pt[1]));
             }
 
             function dragended(event, d) {
-                if (!event.active) simulation.alphaTarget(0);
+                if (!event.active) simulation.alphaTarget(0.05).restart();
+                setTimeout(() => { simulation.alphaTarget(0); }, 250);
                 d.fx = null;
                 d.fy = null;
             }
         }
-        
+
         function updatePanels(data) {
-            const careersList = document.getElementById('careers-list');
-            const wordsList = document.getElementById('words-list');
-            const economyList = document.getElementById('economy-list');
-            const trendsList = document.getElementById('trends-list');
+            const lists = {
+                careers: document.getElementById('careers-list'),
+                words: document.getElementById('words-list'),
+                economy: document.getElementById('economy-list'),
+                trends: document.getElementById('trends-list')
+            };
 
-            // Log data for debugging
-            console.log('Updating panels with data:', data);
+            Object.values(lists).forEach(list => list.innerHTML = '');
 
-            careersList.innerHTML = '';
-            wordsList.innerHTML = '';
-            economyList.innerHTML = '';
-            trendsList.innerHTML = '';
+            const updates = [
+                { key: 'careers', list: lists.careers },
+                { key: 'words', list: lists.words },
+                { key: 'economy', list: lists.economy },
+                { key: 'trends', list: lists.trends }
+            ];
 
-            // Check if data contains careers and words
-            if (data.careers && Array.isArray(data.careers)) {
-                data.careers.forEach(career => {
-                    const li = document.createElement('li');
-                    li.textContent = career;
-                    careersList.appendChild(li);
-                });
-            } else {
-                careersList.innerHTML = '<li>No careers found.</li>';
-            }
-
-            if (data.words && Array.isArray(data.words)) {
-                data.words.forEach(word => {
-                const li = document.createElement('li');
-                li.textContent = word;
-                wordsList.appendChild(li);
-                });
-
-            } else {
-                wordsList.innerHTML = '<li>No words found.</li>';
-            }
-
-            if (data.economy && Array.isArray(data.economy)) {
-                data.economy.forEach(tag => {
-                    const li = document.createElement('li');
-                    li.textContent = tag;
-                    economyList.appendChild(li);
-                });
-            } else {
-                economyList.innerHTML = '<li>No tags found.</li>';
-            }
-
-            if (data.trends && Array.isArray(data.trends)) {
-                data.trends.forEach(topic => {
-                    const li = document.createElement('li');
-                    li.textContent = topic;
-                    trendsList.appendChild(li);
-                });
-            } else {
-                trendsList.innerHTML = '<li>No trendy topics found.</li>';
-            }
+            updates.forEach(({ key, list }) => {
+                if (data[key] && Array.isArray(data[key])) {
+                    data[key].forEach(item => {
+                        const li = document.createElement('li');
+                        li.textContent = item;
+                        list.appendChild(li);
+                    });
+                } else {
+                    list.innerHTML = '<li>None</li>';
+                }
+            });
         }
-
     </script>
 </body>
 </html>
