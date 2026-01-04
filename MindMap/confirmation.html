@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Confirmation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0b1224;
+            --panel: #0f172a;
+            --panel-2: #0d1527;
+            --stroke: #243249;
+            --text: #e8eefc;
+            --muted: #9fb2d7;
+            --accent: #f8c537;
+            --accent-2: #5eead4;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+            background: radial-gradient(circle at 20% 20%, rgba(94, 234, 212, 0.06), transparent 26%),
+                        radial-gradient(circle at 80% 10%, rgba(248, 197, 55, 0.08), transparent 30%),
+                        linear-gradient(140deg, #050915 0%, #0b1224 50%, #0a152e 100%);
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+        }
+        .confirmation-page {
+            display: flex;
+            min-height: 100vh;
+        }
+        .side-window {
+            width: 320px;
+            background: var(--panel);
+            border-right: 1px solid var(--stroke);
+            color: var(--text);
+            padding: 22px 18px;
+            box-sizing: border-box;
+            text-align: center;
+            box-shadow: inset -1px 0 0 rgba(255,255,255,0.03);
+        }
+        .account-icon {
+            width: 92px;
+            height: 92px;
+            background: #0d1527;
+            border-radius: 50%;
+            margin: 0 auto 16px;
+            cursor: pointer;
+            background-size: cover;
+            border: 2px solid var(--stroke);
+        }
+        .account-details p {
+            font-size: 15px;
+            margin: 6px 0;
+            color: var(--muted);
+        }
+        .button {
+            background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+            color: #0b1224;
+            border: none;
+            padding: 11px 14px;
+            margin: 10px 0;
+            cursor: pointer;
+            width: 100%;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            transition: transform 0.12s ease, box-shadow 0.2s ease;
+            box-shadow: 0 12px 26px rgba(0, 0, 0, 0.18);
+        }
+        .button:hover { transform: translateY(-1px) scale(1.01); }
+        .main-content {
+            flex-grow: 1;
+            padding: 34px 28px;
+            box-sizing: border-box;
+            background: var(--panel-2);
+        }
+        .main-content h1 {
+            font-size: 32px;
+            margin: 0 0 12px 0;
+            letter-spacing: 0.3px;
+        }
+        .main-content p {
+            font-size: 17px;
+            color: var(--muted);
+        }
+        #report-container {
+            display: none;
+            margin-top: 18px;
+            background: var(--panel);
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 14px;
+        }
+        .report-container textarea {
+            width: 100%;
+            height: 110px;
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid var(--stroke);
+            background: #0d1527;
+            color: var(--text);
+        }
+        .report-container button {
+            background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+            color: #0b1224;
+            border: none;
+            padding: 10px 14px;
+            cursor: pointer;
+            border-radius: 10px;
+            margin-top: 10px;
+            font-weight: 700;
+        }
+        .back-login {
+            position: fixed;
+            left: 18px;
+            bottom: 18px;
+            min-width: 160px;
+            background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+            color: #0b1224;
+            border: none;
+            padding: 11px 14px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 12px 26px rgba(0, 0, 0, 0.18);
+            transition: transform 0.12s ease, box-shadow 0.2s ease;
+        }
+        .back-login:hover { transform: translateY(-1px) scale(1.01); }
+
+        body.light {
+            background: #f6f7fb;
+            color: #0b1224;
+        }
+        body.light .side-window {
+            background: #ffffff;
+            border-right: 1px solid #e1e6f0;
+            color: #0b1224;
+        }
+        body.light .main-content {
+            background: #fdfefe;
+            color: #0b1224;
+        }
+        body.light .account-details p,
+        body.light .main-content p,
+        body.light .report-container textarea,
+        body.light #constellations-status {
+            color: #1b2436;
+        }
+        body.light .report-container {
+            background: #ffffff;
+            border: 1px solid #e1e6f0;
+        }
+        body.light .account-icon { border-color: #e1e6f0; }
+        body.light .back-login { box-shadow: 0 12px 26px rgba(0,0,0,0.10); }
+        body.light .button { box-shadow: 0 10px 20px rgba(0,0,0,0.12); }
+        body.light #saved-constellations {
+            background: #ffffff;
+            border: 1px solid #e1e6f0;
+        }
+        body.light .constellation-item {
+            background: #f6f7fb;
+            border: 1px solid #e1e6f0;
+            color: #0b1224;
+        }
+        body.light .constellation-item:hover {
+            background: #eef0f6;
+            border-color: #5eead4;
+        }
+        body.light .constellation-preview {
+            background: #e8ecf5;
+        }
+
+        #saved-constellations {
+            margin-top: 28px;
+            background: var(--panel);
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        #saved-constellations h2 {
+            font-size: 24px;
+            margin: 0 0 16px 0;
+            color: var(--text);
+        }
+        .constellation-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        .constellation-item {
+            background: var(--panel-2);
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            aspect-ratio: 1;
+            overflow: hidden;
+        }
+        .constellation-item:hover {
+            background: #0d1527;
+            border-color: var(--accent-2);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(94, 234, 212, 0.15);
+        }
+        .constellation-preview {
+            flex: 1;
+            background: #0a0f1c;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .constellation-preview svg {
+            width: 100%;
+            height: 100%;
+        }
+        .constellation-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .constellation-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .constellation-date {
+            font-size: 12px;
+            color: var(--muted);
+        }
+        #constellations-loading {
+            color: var(--muted);
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="confirmation-page">
+        <div class="side-window" id="side-window">
+            <div class="account-icon" id="account-icon" onclick="changeProfileImage()"></div>
+            <div class="account-details">
+                <p id="user-name">Username</p>
+                <p id="user-email">Email</p>
+            </div>
+            <button class="button" id="toggle-theme" onclick="toggleTheme()">Switch to Dark Mode</button>
+            <button class="button" id="get-reports" onclick="showReportInput()">Submit a Report</button>
+        </div>
+
+        <div class="main-content" id="main-content">
+            <h1>Welcome to MindMap!</h1>
+            <p>Your email has been successfully confirmed.</p>
+            <p id="constellations-status">Constellations Created: <span id="constellations-count">0</span></p>
+            <div id="health-banner" style="display:none; background:#fee2e2; color:#991b1b; border:1px solid #fecaca; padding:10px 12px; border-radius:10px; margin:10px 0; max-width:720px;">
+                Some services are unreachable. Loading or processing may fail.
+            </div>
+            <button class="button" id="start-new" onclick="window.location.href='newc.html'">Start a New Constellation</button>
+            <button class="button" id="refresh-constellations" onclick="refreshConstellations()">Refresh Constellations</button>
+            
+            <div id="saved-constellations">
+                <h2>My Saved Constellations</h2>
+                <div id="constellations-loading">Loading your constellations...</div>
+                <div class="constellation-list" id="constellation-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="report-container" class="report-container">
+        <h3>Write Your Report</h3>
+        <textarea id="report-input" class="report-input" placeholder="Write your report here..."></textarea>
+        <button class="button" onclick="submitReport()">Submit Report</button>
+        <button class="button" onclick="cancelReport()">Cancel</button>
+    </div>
+
+    <button class="back-login" onclick="window.location.href='login.html'">Back to Login</button>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            let user = JSON.parse(localStorage.getItem('user'));
+            const pendingEmail = localStorage.getItem('pendingEmail');
+
+            console.log('User from localStorage:', user);
+            console.log('Pending email:', pendingEmail);
+
+            if (!user && pendingEmail) {
+                document.getElementById('user-name').textContent = '';
+                document.getElementById('user-email').textContent = pendingEmail;
+
+                try {
+                    const resp = await fetch(`http://localhost:3002/is-confirmed?email=${encodeURIComponent(pendingEmail)}`);
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (data.confirmed && data.user) {
+                            user = data.user;
+                            localStorage.setItem('user', JSON.stringify(user));
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Could not fetch user data:', err);
+                }
+            }
+
+            checkHealth();
+
+            if (user) {
+                document.getElementById('user-name').textContent = user.username || user.name || '';
+                document.getElementById('user-email').textContent = user.email;
+
+                const profileImage = user.profileImage || 'default.png';
+                document.getElementById('account-icon').style.backgroundImage = `url('${profileImage}')`;
+            }
+
+            if (pendingEmail && !user) {
+                const poll = async () => {
+                    try {
+                        const resp = await fetch(`http://localhost:3002/is-confirmed?email=${encodeURIComponent(pendingEmail)}`);
+                        if (!resp.ok) return;
+                        const data = await resp.json();
+                        if (data.confirmed) {
+                            document.getElementById('constellations-status').textContent = 'Email confirmed.';
+                            localStorage.setItem('emailConfirmedFlag', 'true');
+                            if (data.user) {
+                                user = data.user;
+                                localStorage.setItem('user', JSON.stringify(user));
+                                location.reload();
+                            }
+                        }
+                    } catch (err) {
+                        console.warn('Polling confirmation failed', err);
+                    }
+                };
+                poll();
+                setInterval(poll, 4000);
+            }
+
+            const theme = localStorage.getItem('theme') || 'dark';
+            if (theme === 'light') {
+                document.body.classList.add('light');
+                document.getElementById('toggle-theme').textContent = 'Switch to Dark Mode';
+            } else {
+                document.body.classList.remove('light');
+                document.getElementById('toggle-theme').textContent = 'Switch to Light Mode';
+            }
+
+            if (user && user.id) {
+                console.log('Loading constellations for user ID:', user.id);
+                loadSavedConstellations(user.id);
+            } else {
+                console.log('No user ID available to load constellations');
+                document.getElementById('constellations-loading').textContent = 'Please log in to view your constellations.';
+            }
+        });
+
+        async function loadSavedConstellations(userId) {
+            const container = document.getElementById('saved-constellations');
+            const loadingEl = document.getElementById('constellations-loading');
+            const listEl = document.getElementById('constellation-list');
+            
+            try {
+                const response = await fetch(`http://localhost:3002/get-constellations/${userId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const constellations = await response.json();
+                
+                console.log('Loaded constellations:', constellations);
+                
+                if (constellations.length === 0) {
+                    loadingEl.textContent = 'No saved constellations yet. Create your first one!';
+                    return;
+                }
+                
+                loadingEl.style.display = 'none';
+                listEl.innerHTML = '';
+                
+                constellations.forEach(constellation => {
+                    const item = document.createElement('div');
+                    item.className = 'constellation-item';
+
+                    const preview = document.createElement('div');
+                    preview.className = 'constellation-preview';
+
+                    try {
+                        const parsed = typeof constellation.constellation_data === 'string'
+                            ? JSON.parse(constellation.constellation_data)
+                            : constellation.constellation_data;
+                        if (!parsed || typeof parsed !== 'object') throw new Error('Invalid constellation data');
+                        const svg = createMiniConstellation(parsed, 240);
+                        preview.appendChild(svg);
+                    } catch (e) {
+                        console.error('Error creating preview:', e);
+                        preview.innerHTML = '<div style="color: var(--muted); font-size: 12px;">Preview unavailable (invalid data)</div>';
+                    }
+
+                    const info = document.createElement('div');
+                    info.className = 'constellation-info';
+
+                    const nameDiv = document.createElement('div');
+                    nameDiv.className = 'constellation-name';
+                    nameDiv.textContent = constellation.name || 'Untitled Constellation';
+                    nameDiv.title = constellation.name || 'Untitled Constellation';
+
+                    const dateDiv = document.createElement('div');
+                    dateDiv.className = 'constellation-date';
+                    const date = new Date(constellation.created_at);
+                    dateDiv.textContent = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+                    const actions = document.createElement('div');
+                    actions.style.display = 'flex';
+                    actions.style.flexDirection = 'column';
+                    actions.style.gap = '8px';
+
+                    const editBtn = document.createElement('button');
+                    editBtn.className = 'button';
+                    editBtn.textContent = 'Edit';
+                    editBtn.style.padding = '8px 10px';
+                    editBtn.style.fontSize = '13px';
+                    editBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        viewConstellation(constellation);
+                    };
+
+                    const shareBtn = document.createElement('button');
+                    shareBtn.className = 'button';
+                    shareBtn.textContent = 'Send Link';
+                    shareBtn.style.padding = '8px 10px';
+                    shareBtn.style.fontSize = '13px';
+                    shareBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        shareConstellationLink(constellation);
+                    };
+
+                    const downloadImgBtn = document.createElement('button');
+                    downloadImgBtn.className = 'button';
+                    downloadImgBtn.textContent = 'Download Image';
+                    downloadImgBtn.style.padding = '8px 10px';
+                    downloadImgBtn.style.fontSize = '13px';
+                    downloadImgBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        downloadConstellationImage(constellation, preview);
+                    };
+
+                    const downloadReportBtn = document.createElement('button');
+                    downloadReportBtn.className = 'button';
+                    downloadReportBtn.textContent = 'Download Report';
+                    downloadReportBtn.style.padding = '8px 10px';
+                    downloadReportBtn.style.fontSize = '13px';
+                    downloadReportBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        downloadConstellationReport(constellation);
+                    };
+
+                    actions.appendChild(editBtn);
+                    actions.appendChild(shareBtn);
+                    actions.appendChild(downloadImgBtn);
+                    actions.appendChild(downloadReportBtn);
+
+                    info.appendChild(nameDiv);
+                    info.appendChild(dateDiv);
+                    info.appendChild(actions);
+
+                    item.appendChild(preview);
+                    item.appendChild(info);
+
+                    listEl.appendChild(item);
+                });
+                
+                document.getElementById('constellations-count').textContent = constellations.length;
+            } catch (error) {
+                console.error('Error loading constellations:', error);
+                loadingEl.textContent = 'Error loading constellations. Please refresh the page.';
+            }
+        }
+        function createMiniConstellation(data, size = 200) {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+            svg.setAttribute('width', `${size}`);
+            svg.setAttribute('height', `${size}`);
+            svg.style.background = '#ffffff';
+
+            const nodes = data.nodes || [];
+            const linksRaw = data.links || [];
+
+            if (!nodes.length) return svg;
+
+            const nodeMap = new Map(nodes.map(n => [n.id, n]));
+            const links = linksRaw.filter(l => nodeMap.has(l.source?.id ?? l.source) && nodeMap.has(l.target?.id ?? l.target));
+
+            const hasPositions = nodes.length && nodes.every(n => Number.isFinite(n.x) && Number.isFinite(n.y));
+            if (!hasPositions && nodes.length) {
+                const radius = size * 0.28;
+                const cx = size / 2;
+                const cy = size / 2;
+                nodes.forEach((n, i) => {
+                    const angle = (i / nodes.length) * 2 * Math.PI;
+                    n.x = cx + Math.cos(angle) * radius;
+                    n.y = cy + Math.sin(angle) * radius;
+                });
+            }
+
+            const seeds = (data.inputWords || '')
+                .split(',')
+                .map(w => w.trim())
+                .filter(Boolean);
+            if (seeds.length) {
+                nodes.forEach(n => {
+                    if (!n.type && seeds.includes(String(n.id))) {
+                        n.type = 'root';
+                    }
+                });
+            }
+            if (nodes.length && !nodes.some(n => n.type === 'root')) {
+                nodes[0].type = 'root';
+            }
+            const styleCfg = { shape: 'star', rootColor: '#f8c537', nodeColor: '#5eead4', linkColor: '#5eead4', ...(data.style || {}) };
+
+            const lighten = (hex, amt = 0.25) => {
+                const n = hex.replace('#','');
+                if (n.length !== 6) return hex;
+                const num = parseInt(n, 16);
+                const r = Math.min(255, Math.max(0, ((num >> 16) & 0xff) + 255 * amt));
+                const g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + 255 * amt));
+                const b = Math.min(255, Math.max(0, (num & 0xff) + 255 * amt));
+                return '#' + [r,g,b].map(x => x.toString(16).padStart(2, '0')).join('');
+            };
+
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            nodes.forEach(node => {
+                if (node.x < minX) minX = node.x;
+                if (node.x > maxX) maxX = node.x;
+                if (node.y < minY) minY = node.y;
+                if (node.y > maxY) maxY = node.y;
+            });
+
+            const width = maxX - minX || 1;
+            const height = maxY - minY || 1;
+            const margin = size * 0.12;
+            const scale = Math.min((size - 2 * margin) / width, (size - 2 * margin) / height);
+            const offsetX = size / 2 - ((minX + maxX) / 2) * scale;
+            const offsetY = size / 2 - ((minY + maxY) / 2) * scale;
+
+            const starPath = (cx, cy, outer, inner, spikes = 5) => {
+                let path = '';
+                let rot = Math.PI / 2 * 3;
+                let x = cx;
+                let y = cy;
+                const step = Math.PI / spikes;
+                path += `M ${cx} ${cy - outer}`;
+                for (let i = 0; i < spikes; i++) {
+                    x = cx + Math.cos(rot) * outer;
+                    y = cy + Math.sin(rot) * outer;
+                    path += ` L ${x} ${y}`;
+                    rot += step;
+                    x = cx + Math.cos(rot) * inner;
+                    y = cy + Math.sin(rot) * inner;
+                    path += ` L ${x} ${y}`;
+                    rot += step;
+                }
+                return path + ' Z';
+            };
+
+            links.forEach(link => {
+                const sourceNode = nodes.find(n => n.id === link.source || n.id === link.source?.id);
+                const targetNode = nodes.find(n => n.id === link.target || n.id === link.target?.id);
+                if (sourceNode && targetNode) {
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', sourceNode.x * scale + offsetX);
+                    line.setAttribute('y1', sourceNode.y * scale + offsetY);
+                    line.setAttribute('x2', targetNode.x * scale + offsetX);
+                    line.setAttribute('y2', targetNode.y * scale + offsetY);
+                    line.setAttribute('stroke', styleCfg.linkColor || '#5eead4');
+                    line.setAttribute('stroke-width', Math.max(0.6, size * 0.0028));
+                    line.setAttribute('opacity', '0.4');
+                    svg.appendChild(line);
+                }
+            });
+
+            nodes.forEach(node => {
+                const cx = node.x * scale + offsetX;
+                const cy = node.y * scale + offsetY;
+                const outer = Math.max(size * 0.022, node.type === 'root' ? size * 0.028 : size * 0.022);
+                const inner = outer * 0.48;
+                const fill = node.type === 'root' ? styleCfg.rootColor : styleCfg.nodeColor;
+                const stroke = lighten(fill, 0.18);
+
+                const makePath = () => {
+                    const shape = styleCfg.shape || 'star';
+                    if (shape === 'circle') {
+                        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        circle.setAttribute('cx', cx);
+                        circle.setAttribute('cy', cy);
+                        circle.setAttribute('r', outer);
+                        circle.setAttribute('fill', fill);
+                        circle.setAttribute('stroke', stroke);
+                        circle.setAttribute('stroke-width', Math.max(1, size * 0.003));
+                        circle.setAttribute('opacity', '0.95');
+                        svg.appendChild(circle);
+                        return;
+                    }
+                    let pathD;
+                    if (shape === 'diamond') {
+                        pathD = `M ${cx} ${cy - outer} L ${cx + outer} ${cy} L ${cx} ${cy + outer} L ${cx - outer} ${cy} Z`;
+                    } else if (shape === 'triangle') {
+                        const h = outer * 1.4;
+                        pathD = `M ${cx} ${cy - h/2} L ${cx + outer} ${cy + h/2} L ${cx - outer} ${cy + h/2} Z`;
+                    } else {
+                        pathD = starPath(cx, cy, outer, inner);
+                    }
+                    const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    pathEl.setAttribute('d', pathD);
+                    pathEl.setAttribute('fill', fill);
+                    pathEl.setAttribute('stroke', stroke);
+                    pathEl.setAttribute('stroke-width', Math.max(1, size * 0.003));
+                    pathEl.setAttribute('opacity', '0.95');
+                    svg.appendChild(pathEl);
+                };
+
+                makePath();
+
+                const fontSizePx = Math.max(8, Math.min(size * 0.02, 28));
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', cx);
+                label.setAttribute('y', cy - outer - fontSizePx * 0.4);
+                label.setAttribute('fill', '#000000');
+                label.setAttribute('font-size', `${fontSizePx}px`);
+                label.setAttribute('font-family', 'Space Grotesk, Segoe UI, sans-serif');
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('dominant-baseline', 'central');
+                label.textContent = node.id;
+                svg.appendChild(label);
+            });
+
+            return svg;
+        }
+
+        function viewConstellation(constellation) {
+            localStorage.setItem('editConstellation', JSON.stringify(constellation));
+            window.location.href = 'newc.html?edit=' + constellation.id;
+        }
+
+        function shareConstellationLink(constellation) {
+            const link = `${window.location.origin}/newc.html?view=${constellation.id}`;
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(link)
+                    .then(() => alert('Shareable link copied to clipboard!'))
+                    .catch(() => alert('Share link: ' + link));
+            } else {
+                alert('Share link: ' + link);
+            }
+        }
+
+        function downloadConstellationImage(constellation, previewEl) {
+            let data = null;
+            try {
+                data = typeof constellation.constellation_data === 'string'
+                    ? JSON.parse(constellation.constellation_data)
+                    : constellation.constellation_data;
+            } catch (err) {
+                console.error('Could not parse constellation data for download', err);
+            }
+
+            if (!data) {
+                alert('No data available to download.');
+                return;
+            }
+
+            const exportSize = 1600;
+            const svgEl = createMiniConstellation(data, exportSize);
+            const serializer = new XMLSerializer();
+            const svgString = serializer.serializeToString(svgEl);
+            const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+
+            const image = new Image();
+            image.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = image.width || exportSize;
+                canvas.height = image.height || exportSize;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+                canvas.toBlob((blob) => {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `${constellation.name || 'constellation'}.png`;
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                }, 'image/png');
+
+                URL.revokeObjectURL(url);
+            };
+            image.src = url;
+        }
+
+        function downloadConstellationReport(constellation) {
+            let data = null;
+            try {
+                data = typeof constellation.constellation_data === 'string'
+                    ? JSON.parse(constellation.constellation_data)
+                    : constellation.constellation_data;
+            } catch (err) {
+                console.error('Could not parse constellation data for report', err);
+            }
+
+            if (!data) {
+                alert('No data available to download.');
+                return;
+            }
+
+            const lines = [];
+            lines.push(`Constellation: ${constellation.name || 'Untitled'}`);
+            lines.push(`Created: ${constellation.created_at || 'n/a'}`);
+            lines.push('');
+
+            const words = Array.isArray(data.words) ? data.words : (data.nodes || []).map(n => n.id);
+            lines.push('Words:');
+            lines.push(words.length ? ' - ' + words.join(', ') : ' - none');
+            lines.push('');
+
+            const economy = Array.isArray(data.economy) ? data.economy : [];
+            lines.push('Economic Tags:');
+            lines.push(economy.length ? ' - ' + economy.join(', ') : ' - none');
+            lines.push('');
+
+            const trends = Array.isArray(data.trends) ? data.trends : [];
+            lines.push('Trendy Topics:');
+            lines.push(trends.length ? ' - ' + trends.join(', ') : ' - none');
+            lines.push('');
+
+            const careers = Array.isArray(data.careers) ? data.careers : [];
+            lines.push('Suggested Careers:');
+            lines.push(careers.length ? careers.map(c => ` - ${c}`).join('\n') : ' - none');
+            lines.push('');
+
+            const nodeCount = (data.nodes || []).length;
+            const linkCount = (data.links || []).length;
+            lines.push(`Nodes: ${nodeCount}`);
+            lines.push(`Links: ${linkCount}`);
+            lines.push('');
+
+            lines.push('Nodes Detail:');
+            if (data.nodes && data.nodes.length) {
+                data.nodes.forEach(n => {
+                    lines.push(` - ${n.id}${n.categories && n.categories.length ? ' [' + n.categories.join(', ') + ']' : ''}`);
+                });
+            } else {
+                lines.push(' - none');
+            }
+
+            const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${constellation.name || 'constellation'}-report.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function refreshConstellations() {
+            const user = JSON.parse(localStorage.getItem('user'));
+            console.log('Manual refresh - User data:', user);
+            if (user && user.id) {
+                document.getElementById('constellations-loading').style.display = 'block';
+                document.getElementById('constellations-loading').textContent = 'Loading your constellations...';
+                document.getElementById('constellation-list').innerHTML = '';
+                loadSavedConstellations(user.id);
+            } else {
+                alert('No user logged in. Please log in first.');
+                console.error('No user or user ID found in localStorage');
+            }
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            const button = document.getElementById('toggle-theme');
+            const nowLight = body.classList.toggle('light');
+            if (nowLight) {
+                button.textContent = 'Switch to Dark Mode';
+                localStorage.setItem('theme', 'light');
+            } else {
+                button.textContent = 'Switch to Light Mode';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        function changeProfileImage() {
+            const newImage = prompt("Enter the URL of the new profile image:");
+            if (newImage) {
+                document.getElementById('account-icon').style.backgroundImage = `url('${newImage}')`;
+                const user = JSON.parse(localStorage.getItem('user'));
+                user.profileImage = newImage;
+                localStorage.setItem('user', JSON.stringify(user));
+            }
+        }
+
+        function showReportInput() {
+            document.getElementById('report-container').style.display = 'block';
+        }
+
+        function submitReport() {
+            const reportContent = document.getElementById('report-input').value;
+            if (!reportContent) {
+                alert('Please enter a report.');
+                return;
+            }
+
+            const user = JSON.parse(localStorage.getItem('user'));
+            console.log('User data from localStorage:', user);
+            if (!user || !user.id) {
+                alert('Please log in first to submit a report.');
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const reportData = {
+                report: reportContent,
+                id: user.id
+            };
+
+            const backendUrl = 'http://localhost:3002';
+            console.log('Submitting report to:', `${backendUrl}/submit-report`);
+            console.log('Report data:', reportData);
+            fetch(`${backendUrl}/submit-report`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(reportData),
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                alert(data.message);
+                document.getElementById('report-input').value = '';
+                document.getElementById('report-container').style.display = 'none';
+            })
+            .catch(error => {
+                console.error('Error submitting the report:', error);
+                alert('Error submitting the report: ' + error.message);
+            });
+        }
+
+        function cancelReport() {
+            document.getElementById('report-container').style.display = 'none';
+        }
+
+        async function checkHealth() {
+            const banner = document.getElementById('health-banner');
+            if (!banner) return;
+            let nodeOk = false;
+            let flaskOk = false;
+            try {
+                const r = await fetch('http://localhost:3002/get-constellations/0', { method: 'GET' });
+                nodeOk = r.ok;
+            } catch (_) { nodeOk = false; }
+
+            try {
+                const f = await fetch('http://127.0.0.1:5000/health');
+                flaskOk = f.ok || f.status === 404;
+            } catch (_) { flaskOk = false; }
+
+            if (!nodeOk || !flaskOk) {
+                banner.style.display = 'block';
+                banner.textContent = `Some services are unreachable: Node ${nodeOk ? 'ok' : 'down'}, NLP ${flaskOk ? 'ok' : 'down'}.`;
+            } else {
+                banner.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

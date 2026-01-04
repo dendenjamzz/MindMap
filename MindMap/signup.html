@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0b1224;
+            --panel: #0f172a;
+            --stroke: #243249;
+            --text: #e8eefc;
+            --muted: #9fb2d7;
+            --accent: #f8c537;
+            --accent-2: #5eead4;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+            background: radial-gradient(circle at 20% 20%, rgba(94, 234, 212, 0.06), transparent 26%),
+                        radial-gradient(circle at 80% 10%, rgba(248, 197, 55, 0.08), transparent 30%),
+                        linear-gradient(140deg, #050915 0%, #0b1224 50%, #0a152e 100%);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+            color: var(--text);
+        }
+        .form-container {
+            background: var(--panel);
+            border: 1px solid var(--stroke);
+            border-radius: 16px;
+            padding: 26px 22px;
+            width: 100%;
+            max-width: 460px;
+            box-shadow: 0 16px 42px rgba(0,0,0,0.35);
+        }
+        h1 {
+            text-align: center;
+            color: var(--text);
+            margin: 0 0 10px 0;
+            letter-spacing: 0.5px;
+        }
+        label {
+            display: block;
+            font-size: 14px;
+            color: var(--muted);
+            margin: 10px 0 6px;
+        }
+        input {
+            width: 100%;
+            padding: 11px 12px;
+            margin-bottom: 6px;
+            border: 1px solid var(--stroke);
+            border-radius: 10px;
+            font-size: 15px;
+            background: #0d1527;
+            color: var(--text);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(248, 197, 55, 0.18);
+        }
+        .show-password {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 6px 0 14px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        .show-password input[type="checkbox"] {
+            width: auto;
+            accent-color: var(--accent);
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+            color: #0b1224;
+            font-size: 1rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.12s ease, box-shadow 0.2s ease;
+            box-shadow: 0 12px 26px rgba(0, 0, 0, 0.18);
+            margin-top: 10px;
+        }
+        button:hover { transform: translateY(-1px) scale(1.01); }
+        button:active { transform: translateY(0); }
+        .redirect-link {
+            text-align: center;
+            margin-top: 12px;
+            color: var(--muted);
+        }
+        .redirect-link a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .redirect-link a:hover { color: var(--accent-2); }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Create an Account</h1>
+        <form id="signup-form">
+            <label for="username">Username:</label>
+            <input type="text" id="username" autocomplete="username" required>
+
+            <label for="email">Email:</label>
+            <input type="email" id="email" autocomplete="email" required>
+
+            <label for="password">Password:</label>
+            <input type="password" id="password" autocomplete="new-password" required>
+
+            <div class="show-password">
+                <label for="show-password">Show Password</label>
+                <input type="checkbox" id="show-password">
+            </div>
+
+            <button type="submit">Sign Up</button>
+            <div id="signup-status" style="margin-top:10px; color: var(--muted); font-size: 14px;"></div>
+        </form>
+        <div class="redirect-link">
+            <p>Already have an account? <a href="login.html">Login here</a></p>
+        </div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('signup-status');
+        let pollTimer = null;
+
+        const startPollingConfirmation = (email) => {
+            if (pollTimer) clearInterval(pollTimer);
+            const poll = async () => {
+                try {
+                    const resp = await fetch(`http://localhost:3002/is-confirmed?email=${encodeURIComponent(email)}`);
+                    if (!resp.ok) return;
+                    const data = await resp.json();
+                    if (data.confirmed) {
+                        clearInterval(pollTimer);
+                        statusEl.textContent = 'Email confirmed. Redirecting...';
+                        statusEl.style.color = '#5eead4';
+                        localStorage.setItem('emailConfirmedFlag', 'true');
+                        window.location.href = 'confirmation.html';
+                    }
+                } catch (err) {
+                    console.warn('Confirm poll failed', err);
+                }
+            };
+            poll();
+            pollTimer = setInterval(poll, 4000);
+        };
+
+        document.getElementById('show-password').addEventListener('change', function() {
+            const passwordField = document.getElementById('password');
+            passwordField.type = this.checked ? 'text' : 'password';
+        });
+
+        document.getElementById('signup-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+         const username = document.getElementById('username').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value.trim();
+
+        try {
+            const response = await fetch('http://localhost:3002/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password })
+            });
+    const responseData = await response.json();
+
+        if (response.ok) {
+            localStorage.setItem('pendingEmail', email);
+            statusEl.textContent = 'Signup successful! Check your email and click confirm. Waiting for confirmation...';
+            statusEl.style.color = '#9fb2d7';
+            startPollingConfirmation(email);
+        } else {
+            statusEl.textContent = responseData.error || 'Failed to sign up.';
+            statusEl.style.color = '#f8c537';
+        }
+        } catch (error) {
+        console.error('Error:', error);
+        statusEl.textContent = 'An error occurred. Please try again.';
+        statusEl.style.color = '#f8c537';
+        }
+        });
+
+
+
+          
+    </script>
+</body>
+</html>

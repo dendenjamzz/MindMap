@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Constellation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #0b1224;
+            --panel: #0f172a;
+            --panel-strong: #111a31;
+            --text: #e8eefc;
+            --muted: #9fb2d7;
+            --accent: #f8c537;
+            --accent-2: #5eead4;
+            --stroke: #243249;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+            background: radial-gradient(circle at 20% 20%, rgba(94, 234, 212, 0.06), transparent 26%),
+                        radial-gradient(circle at 80% 10%, rgba(248, 197, 55, 0.08), transparent 30%),
+                        linear-gradient(140deg, #050915 0%, #0b1224 50%, #0a152e 100%);
+            min-height: 100vh;
+            margin: 0;
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 18px 32px;
+        }
+        .form-container {
+            background: var(--panel);
+            padding: 24px 22px 20px 22px;
+            border-radius: 18px;
+            border: 1px solid var(--stroke);
+            width: 100%;
+            max-width: 760px;
+            margin: 12px 0 18px 0;
+            position: relative;
+            backdrop-filter: blur(6px);
+        }
+        .form-container::before {
+            content: "✦";
+            font-size: 1.8rem;
+            position: absolute;
+            left: 14px;
+            top: 10px;
+            color: var(--accent);
+        }
+        h1 {
+            font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+            color: var(--text);
+            font-size: 2.1rem;
+            margin: 0 0 6px 0;
+            letter-spacing: 0.5px;
+        }
+        .form-container p {
+            color: var(--muted);
+            font-size: 1rem;
+            margin: 0 0 14px 0;
+        }
+        textarea {
+            width: 100%;
+            height: 110px;
+            padding: 12px 12px 12px 14px;
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            font-size: 17px;
+            background: #0d1527;
+            color: var(--text);
+            resize: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            margin-bottom: 12px;
+        }
+        textarea:focus {
+            border-color: var(--accent);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(248, 197, 55, 0.18);
+        }
+        button {
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+            color: #0b1224;
+            font-size: 1.05rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.2s ease;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+        }
+        button:hover { transform: translateY(-1px) scale(1.01); }
+        button:active { transform: translateY(0); }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            margin-top: 12px;
+        }
+        .action-buttons button {
+            flex: 1;
+        }
+        #back-button {
+            background: linear-gradient(90deg, #6b7280 0%, #4b5563 100%);
+        }
+
+        #graph-container {
+            width: 100%;
+            max-width: 1400px;
+            min-width: 340px;
+            height: 760px;
+            min-height: 420px;
+            border: 1px solid var(--stroke);
+            border-radius: 16px;
+            background: #ffffff;
+            position: relative;
+            margin: 12px 0 18px 0;
+            resize: both;
+            overflow: hidden;
+        }
+        #zoom-controls {
+            position: absolute;
+            right: 12px;
+            top: 12px;
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+        #link-note, #suggestion-note {
+            position: absolute;
+            padding: 8px 10px;
+            background: #0f192f;
+            border: 1px solid var(--stroke);
+            border-radius: 8px;
+            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28);
+            color: var(--muted);
+            font-size: 13px;
+            max-width: 260px;
+            display: none;
+            z-index: 21;
+        }
+        #link-note { z-index: 20; pointer-events: none; }
+        .suggestion-btn {
+            display: inline-block;
+            margin-top: 6px;
+            margin-right: 6px;
+            padding: 6px 8px;
+            background: #0d1527;
+            border: 1px solid var(--stroke);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .zoom-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            border: 1px solid var(--stroke);
+            background: #0d1527;
+            color: #f8c537;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.12s, box-shadow 0.2s, border-color 0.2s, color 0.2s;
+        }
+        .zoom-btn:hover {
+            transform: scale(1.05);
+            border-color: var(--accent);
+            color: #5eead4;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+        }
+        #panel-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+            width: 100%;
+            max-width: 1200px;
+            margin-top: 6px;
+        }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--stroke);
+            border-radius: 14px;
+            padding: 14px 12px 12px 12px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+            transition: transform 0.2s ease, border-color 0.2s;
+        }
+        .panel:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent);
+        }
+        h3 {
+            color: var(--text);
+            margin-top: 0;
+            margin-bottom: 10px;
+            letter-spacing: 0.3px;
+        }
+        ul { padding-left: 16px; margin: 0; color: var(--muted); }
+        .legend-item { margin: 5px 0; }
+        .legend-color {
+            width: 18px;
+            height: 18px;
+            display: inline-block;
+            margin-right: 6px;
+            border-radius: 4px;
+        }
+        .nodes path {
+            transition: filter 0.12s, transform 0.12s;
+            filter: drop-shadow(0 0 0px rgba(248, 197, 55, 0.0));
+        }
+        .nodes path:hover {
+            filter: drop-shadow(0 0 10px rgba(248, 197, 55, 0.7));
+            transform: scale(1.14);
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Word Constellation</h1>
+        <p>
+            Enter up to <b>10 words</b> separated by commas. Example: <i>cat, dog, apple</i>.<br>
+            English only. If a word doesn’t appear, check spelling.
+        </p>
+        <textarea id="words-input" placeholder="Ex: cat, dog, apple"></textarea>
+        <button id="submit-button">Submit</button>        <div class="action-buttons">
+            <button id="save-button" style="display:none;">Save Constellation</button>
+            <button id="back-button" onclick="window.location.href='confirmation.html'">Back to Account</button>
+        </div>    </div>
+    <div id="health-banner" style="display:none; background:#fee2e2; color:#991b1b; border:1px solid #fecaca; padding:10px 12px; border-radius:10px; max-width:760px; width:100%; box-sizing:border-box; margin-bottom:10px;">
+        Some services are unreachable. Saving or processing may fail.
+    </div>
+    <div id="status-area" style="position:fixed; top:14px; right:14px; display:flex; flex-direction:column; gap:8px; z-index:2000;"></div>
+    <div id="graph-container">
+        <div id="zoom-controls">
+            <button id="zoom-in" class="zoom-btn" title="Zoom in" aria-label="Zoom in">+</button>
+            <button id="zoom-out" class="zoom-btn" title="Zoom out" aria-label="Zoom out">−</button>
+        </div>
+        <div id="link-note"></div>
+        <div id="suggestion-note"></div>
+    </div>
+    <div class="form-container" style="max-width: 760px; margin-top: 10px;">
+        <h3 style="margin: 0 0 10px 0;">Constellation Appearance</h3>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:10px;">
+            <label style="color:var(--muted); font-size:14px; display:flex; flex-direction:column; gap:6px;">
+                Node Shape
+                <select id="style-shape" style="padding:8px; border-radius:10px; border:1px solid var(--stroke); background:#0d1527; color:var(--text);">
+                    <option value="star">Star</option>
+                    <option value="circle">Circle</option>
+                    <option value="diamond">Diamond</option>
+                    <option value="triangle">Triangle</option>
+                </select>
+            </label>
+            <label style="color:var(--muted); font-size:14px; display:flex; flex-direction:column; gap:6px;">
+                Root Color
+                <input id="style-root" type="color" value="#f8c537" style="height:36px; border:none; border-radius:10px; background:#0d1527;">
+            </label>
+            <label style="color:var(--muted); font-size:14px; display:flex; flex-direction:column; gap:6px;">
+                Node Color
+                <input id="style-node" type="color" value="#5eead4" style="height:36px; border:none; border-radius:10px; background:#0d1527;">
+            </label>
+            <label style="color:var(--muted); font-size:14px; display:flex; flex-direction:column; gap:6px;">
+                Link Color
+                <input id="style-link" type="color" value="#5eead4" style="height:36px; border:none; border-radius:10px; background:#0d1527;">
+            </label>
+        </div>
+        <div class="action-buttons" style="margin-top:12px; gap:8px;">
+            <button id="apply-style">Apply Style</button>
+            <button id="save-style" style="background:linear-gradient(90deg,#22c55e 0%, #16a34a 100%);">Save Style</button>
+        </div>
+    </div>
+    <div id="panel-container">
+        <div id="careers-panel" class="panel">
+            <h3>Suggested Careers</h3>
+            <ul id="careers-list"></ul>
+        </div>
+        <div id="words-panel" class="panel">
+            <h3>Words in Constellation</h3>
+            <ul id="words-list"></ul>
+        </div>
+        <div id="economy-panel" class="panel">
+            <h3>Economic Tags</h3>
+            <ul id="economy-list"></ul>
+        </div>
+        <div id="trends-panel" class="panel">
+            <h3>Trendy Topics</h3>
+            <ul id="trends-list"></ul>
+        </div>
+    </div>
+
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script>
+        let graphResizeObserver = null;
+        let currentConstellationData = null;
+        let editingId = null;
+        const defaultStyle = {
+            shape: 'star',
+            rootColor: '#f8c537',
+            nodeColor: '#5eead4',
+            linkColor: '#5eead4'
+        };
+        const styleDefaultKey = 'constellationStyleDefault';
+        let currentStyle = { ...defaultStyle };
+        let silentSaveErrorShown = false;
+        let styleSaveInFlight = false;
+        let statusTimer = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const stored = JSON.parse(localStorage.getItem(styleDefaultKey) || 'null');
+                if (stored) currentStyle = { ...defaultStyle, ...stored };
+            } catch (_) { currentStyle = { ...defaultStyle }; }
+            syncStyleControls();
+
+            checkHealth();
+
+            const params = new URLSearchParams(window.location.search);
+            const editId = params.get('edit');
+            const viewId = params.get('view');
+            if (editId) editingId = editId;
+
+            if (editId || viewId) {
+                await loadConstellationById(editId || viewId, { isView: Boolean(viewId) });
+            } else {
+                localStorage.removeItem('editConstellation');
+                currentConstellationData = null;
+                document.getElementById('words-input').value = '';
+                currentStyle = { ...defaultStyle, ...(JSON.parse(localStorage.getItem(styleDefaultKey) || 'null') || {}) };
+                syncStyleControls();
+            }
+        });
+
+        function syncStyleControls() {
+            document.getElementById('style-shape').value = currentStyle.shape;
+            document.getElementById('style-root').value = currentStyle.rootColor;
+            document.getElementById('style-node').value = currentStyle.nodeColor;
+            document.getElementById('style-link').value = currentStyle.linkColor;
+        }
+
+        function readStyleFromControls() {
+            return {
+                shape: document.getElementById('style-shape').value,
+                rootColor: document.getElementById('style-root').value,
+                nodeColor: document.getElementById('style-node').value,
+                linkColor: document.getElementById('style-link').value,
+            };
+        }
+
+        function showStatus(message, type = 'info', duration = 2600) {
+            const area = document.getElementById('status-area');
+            if (!area) return;
+            const div = document.createElement('div');
+            div.textContent = message;
+            div.style.padding = '10px 12px';
+            div.style.borderRadius = '10px';
+            div.style.fontSize = '14px';
+            div.style.boxShadow = '0 10px 24px rgba(0,0,0,0.14)';
+            div.style.border = '1px solid';
+            if (type === 'error') {
+                div.style.background = '#fee2e2';
+                div.style.color = '#991b1b';
+                div.style.borderColor = '#fecdd3';
+            } else if (type === 'success') {
+                div.style.background = '#ecfdf3';
+                div.style.color = '#166534';
+                div.style.borderColor = '#bbf7d0';
+            } else {
+                div.style.background = '#eff6ff';
+                div.style.color = '#1d4ed8';
+                div.style.borderColor = '#bfdbfe';
+            }
+            area.appendChild(div);
+            clearTimeout(statusTimer);
+            statusTimer = setTimeout(() => {
+                div.remove();
+            }, duration);
+        }
+
+        async function loadConstellationById(id, { isView = false } = {}) {
+            if (!id) return;
+            editingId = isView ? null : id;
+            try {
+                const resp = await fetch(`http://localhost:3002/constellation/${id}`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const constellation = await resp.json();
+                hydrateConstellation(constellation, { isView });
+            } catch (err) {
+                console.error('Error loading constellation by id:', err);
+                showStatus('Could not load this constellation.', 'error', 3200);
+            }
+        }
+
+        function hydrateConstellation(constellation, { isView = false } = {}) {
+            try {
+                const data = typeof constellation.constellation_data === 'string'
+                    ? JSON.parse(constellation.constellation_data)
+                    : constellation.constellation_data;
+
+                currentConstellationData = data;
+                if (constellation.id) {
+                    currentConstellationData.id = constellation.id;
+                }
+                    if (constellation.name) {
+                        currentConstellationData.name = constellation.name;
+                    }
+
+                if (data.style) {
+                    currentStyle = { ...defaultStyle, ...data.style };
+                } else {
+                    currentStyle = { ...defaultStyle };
+                }
+                currentConstellationData.style = { ...currentStyle };
+                syncStyleControls();
+
+                if (data.inputWords) {
+                    document.getElementById('words-input').value = data.inputWords;
+                } else if (Array.isArray(data.words)) {
+                    document.getElementById('words-input').value = data.words.join(', ');
+                }
+
+                renderGraph(data);
+                updatePanels(data);
+
+                document.getElementById('save-button').style.display = isView ? 'none' : 'block';
+            } catch (e) {
+                console.error('Failed to hydrate constellation:', e);
+                alert('Unable to load this constellation.');
+            }
+        }
+
+         document.getElementById('submit-button').addEventListener('click', async function () {
+            const wordsRaw = document.getElementById('words-input').value.trim();
+            if (!wordsRaw) {
+                showStatus('Please enter some words.', 'error');
+                return;
+            }
+            const wordsArr = wordsRaw.split(',').map(w => w.trim()).filter(w => w.length > 0);
+            if (wordsArr.length > 10) {
+                showStatus('Please enter a maximum of 10 words.', 'error');
+                return;
+            }
+            const words = wordsArr.join(',');
+
+            try {
+                const response = await fetch('http://localhost:3002/process-words', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ words }),
+                });
+
+                const text = await response.text();
+                try {
+                    const data = JSON.parse(text);
+                    if (response.ok) {
+                        currentConstellationData = data;
+                        currentConstellationData.inputWords = words;
+                        renderGraph(data);
+                        updatePanels(data);
+                        document.getElementById('save-button').style.display = 'block';
+                    } else {
+                        showStatus(data.error || 'Failed to process words.', 'error');
+                    }
+                } catch (jsonError) {
+                    showStatus('Server response is not valid JSON.', 'error');
+                }
+            } catch (error) {
+                showStatus('Processing unavailable. Please try again.', 'error');
+            }
+        });
+
+        document.getElementById('apply-style').addEventListener('click', async () => {
+            currentStyle = readStyleFromControls();
+            const btn = document.getElementById('apply-style');
+            if (styleSaveInFlight) return;
+            if (!currentConstellationData) {
+                showStatus('Nothing to style yet. Generate or load a constellation.', 'info');
+                return;
+            }
+            currentConstellationData.style = { ...currentStyle };
+            renderGraph(currentConstellationData);
+            updatePanels(currentConstellationData);
+
+            if (!editingId) {
+                showStatus('Style applied locally. Save to keep it.', 'info');
+                return;
+            }
+
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user || !user.id) {
+                showStatus('Log in to save style changes.', 'error');
+                return;
+            }
+
+            styleSaveInFlight = true;
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+            const ok = await saveStyleSilently();
+            btn.disabled = false;
+            btn.textContent = 'Apply Style';
+            styleSaveInFlight = false;
+            if (ok) showStatus('Style saved.', 'success');
+        });
+
+        document.getElementById('save-style').addEventListener('click', () => {
+            currentStyle = readStyleFromControls();
+            localStorage.setItem(styleDefaultKey, JSON.stringify(currentStyle));
+            showStatus('Saved as default for new constellations. Existing constellations keep their own style.', 'success');
+            if (currentConstellationData) {
+                currentConstellationData.style = { ...currentStyle };
+            }
+        });
+
+        document.getElementById('save-button').addEventListener('click', async function() {
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user || !user.id) {
+                alert('Please log in to save constellations.');
+                window.location.href = 'login.html';
+                return;
+            }
+
+            if (!currentConstellationData) {
+                alert('No constellation to save. Please generate one first.');
+                return;
+            }
+
+            const existingName = currentConstellationData.name || '';
+            const name = prompt('Enter a name for this constellation:', existingName);
+            if (!name || name.trim() === '') {
+                return;
+            }
+
+            try {
+                currentStyle = readStyleFromControls();
+                currentConstellationData.style = { ...currentStyle };
+                currentConstellationData.name = name.trim();
+
+                let response;
+                if (editingId) {
+                    response = await fetch(`http://localhost:3002/update-constellation/${editingId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: name.trim(),
+                            constellationData: currentConstellationData
+                        })
+                    });
+                } else {
+                    response = await fetch('http://localhost:3002/save-constellation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: user.id,
+                            name: name.trim(),
+                            constellationData: currentConstellationData
+                        })
+                    });
+                }
+
+                const data = await response.json();
+                if (response.ok) {
+                    showStatus(data.message || 'Saved.', 'success');
+                    if (!editingId && data.constellationId) {
+                        editingId = data.constellationId;
+                        currentConstellationData.id = data.constellationId;
+                    }
+                } else {
+                    showStatus(data.message || 'Failed to save constellation.', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving constellation:', error);
+                showStatus('Error saving constellation.', 'error');
+            }
+        });
+
+        async function saveStyleSilently() {
+            if (!editingId || !currentConstellationData) return false;
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user || !user.id) return false;
+            const nameToUse = currentConstellationData.name || 'Untitled Constellation';
+
+            try {
+                const response = await fetch(`http://localhost:3002/update-constellation/${editingId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: nameToUse,
+                        constellationData: { ...currentConstellationData, style: { ...currentStyle }, name: nameToUse }
+                    })
+                });
+                if (!response.ok) {
+                    const msg = await response.text();
+                    console.warn('Silent style save failed', msg);
+                    if (!silentSaveErrorShown) {
+                        showStatus('Could not auto-save the style. Please use Save Constellation.', 'error', 3200);
+                        silentSaveErrorShown = true;
+                    }
+                    return false;
+                }
+                return true;
+            } catch (err) {
+                console.warn('Silent style save error', err);
+                if (!silentSaveErrorShown) {
+                    showStatus('Could not auto-save the style. Please use Save Constellation.', 'error', 3200);
+                    silentSaveErrorShown = true;
+                }
+                return false;
+            }
+        }
+
+        async function checkHealth() {
+            const banner = document.getElementById('health-banner');
+            if (!banner) return;
+            let nodeOk = false;
+            let flaskOk = false;
+            try {
+                const r = await fetch('http://localhost:3002/get-constellations/0', { method: 'GET' });
+                nodeOk = r.ok;
+            } catch (_) { nodeOk = false; }
+
+            try {
+                const f = await fetch('http://127.0.0.1:5000/health');
+                flaskOk = f.ok || f.status === 404;
+            } catch (_) { flaskOk = false; }
+
+            if (!nodeOk || !flaskOk) {
+                banner.style.display = 'block';
+                banner.textContent = `Some services are unreachable: Node ${nodeOk ? 'ok' : 'down'}, NLP ${flaskOk ? 'ok' : 'down'}.`;
+            } else {
+                banner.style.display = 'none';
+            }
+        }
+
+        function renderGraph(data) {
+            d3.select('#graph-container').select('svg').remove();
+            if (graphResizeObserver) {
+                graphResizeObserver.disconnect();
+                graphResizeObserver = null;
+            }
+            const linkNote = document.getElementById('link-note');
+            const suggestionNote = document.getElementById('suggestion-note');
+            let hideNoteTimeout = null;
+            console.log('Rendering graph with data:', data);
+
+            const graphContainer = document.getElementById('graph-container');
+            let width = graphContainer.clientWidth || window.innerWidth * 0.8;
+            let height = graphContainer.clientHeight || window.innerHeight * 0.8;
+
+            const styleCfg = { ...defaultStyle, ...(data.style || {}), ...currentStyle };
+
+            const svg = d3.select('#graph-container').append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .style('border', 'none')
+                .style('background', '#ffffff');
+
+            const zoomLayer = svg.append('g');
+            const nodes = data.nodes || [];
+            const linksRaw = data.links || [];
+
+            const seeds = (data.inputWords || '')
+                .split(',')
+                .map(w => w.trim())
+                .filter(Boolean);
+            if (seeds.length) {
+                nodes.forEach(n => {
+                    if (!n.type && seeds.includes(String(n.id))) {
+                        n.type = 'root';
+                    }
+                });
+            }
+            if (nodes.length && !nodes.some(n => n.type === 'root')) {
+                nodes[0].type = 'root';
+            }
+
+            const nodesById = new Map(nodes.map(n => [n.id, n]));
+            const links = linksRaw.map(l => {
+                const srcId = typeof l.source === 'object' ? l.source.id ?? l.source : l.source;
+                const tgtId = typeof l.target === 'object' ? l.target.id ?? l.target : l.target;
+                const srcNode = nodesById.get(srcId) || { id: srcId };
+                const tgtNode = nodesById.get(tgtId) || { id: tgtId };
+                return { ...l, source: srcNode, target: tgtNode };
+            });
+
+            const hasPositions = nodes.length > 0 && nodes.every(n => Number.isFinite(n.x) && Number.isFinite(n.y));
+
+            if (!hasPositions) {
+                nodes.forEach((node, i) => {
+                    const angle = (i / Math.max(nodes.length, 1)) * 2 * Math.PI;
+                    node.x = width / 2 + Math.cos(angle) * 200;
+                    node.y = height / 2 + Math.sin(angle) * 200;
+                });
+            }
+
+            let link = zoomLayer.append('g')
+                .attr('class', 'links')
+                .selectAll('line')
+                .data(links)
+                .enter().append('line')
+                .attr('stroke', styleCfg.linkColor || '#999')
+                .attr('stroke-width', 3)
+                .style('cursor', 'pointer')
+                .on('click', (event, d) => {
+                    event.stopPropagation();
+                    showLinkNote(event, d);
+                });
+
+            let linkHit = zoomLayer.append('g')
+                .attr('class', 'link-hit')
+                .selectAll('line')
+                .data(links)
+                .enter().append('line')
+                .attr('stroke', '#000')
+                .attr('stroke-opacity', 0)
+                .attr('stroke-width', 16)
+                .style('pointer-events', 'stroke')
+                .style('cursor', 'pointer')
+                .on('click', (event, d) => {
+                    event.stopPropagation();
+                    showLinkNote(event, d);
+                });
+
+            let node = zoomLayer.append('g')
+                .attr('class', 'nodes')
+                .selectAll('g')
+                .data(nodes)
+                .enter().append('g')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended))
+                .on('click', (event, d) => {
+                    event.stopPropagation();
+                    showNodeSuggestions(event, d);
+                });
+
+            node.append('circle')
+                .attr('r', 18)
+                .attr('fill', '#000')
+                .attr('opacity', 0)
+                .style('cursor', 'pointer');
+
+            const symbolForShape = (type, size=800) => {
+                switch (type) {
+                    case 'circle': return d3.symbolCircle;
+                    case 'diamond': return d3.symbolDiamond;
+                    case 'triangle': return d3.symbolTriangle;
+                    default: return d3.symbolStar;
+                }
+            };
+
+            node.append('path')
+                .attr('d', d3.symbol().type(symbolForShape(styleCfg.shape)).size(800))
+                .attr('fill', d => d.type === 'root' ? styleCfg.rootColor : styleCfg.nodeColor)
+                .attr('stroke', d => d.type === 'root' ? d3.color(styleCfg.rootColor).brighter(0.8) : d3.color(styleCfg.nodeColor).brighter(0.8))
+                .attr('stroke-width', 2);
+
+            node.append('text')
+                .attr('dy', -20)
+                .attr('text-anchor', 'middle')
+                .attr('font-size', '12px')
+                .attr('fill', '#333')
+                .text(d => d.id);
+
+            const clampMargin = 30;
+
+            const updatePositions = () => {
+                nodes.forEach(d => {
+                    d.x = Math.max(clampMargin, Math.min(width - clampMargin, d.x));
+                    d.y = Math.max(clampMargin, Math.min(height - clampMargin, d.y));
+                });
+
+                link
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+
+                linkHit
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+
+                node.attr('transform', d => `translate(${d.x},${d.y})`);
+            };
+
+            const simulation = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(links).id(d => d.id).distance(100))
+                .force('charge', d3.forceManyBody().strength(hasPositions ? -20 : -50))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(50))
+                .force('radial', d3.forceRadial(300, width / 2, height / 2))
+                .alpha(hasPositions ? 0.08 : 1)
+                .alphaDecay(hasPositions ? 0.2 : 0.02)
+                .velocityDecay(hasPositions ? 0.5 : 0.4)
+                .on('tick', updatePositions);
+
+            if (hasPositions) {
+                setTimeout(() => simulation.stop(), 900);
+            }
+
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = Math.max(clampMargin, Math.min(width - clampMargin, event.x));
+                d.fy = Math.max(clampMargin, Math.min(height - clampMargin, event.y));
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+
+            graphResizeObserver = new ResizeObserver(() => {
+                width = graphContainer.clientWidth;
+                height = graphContainer.clientHeight;
+                svg.attr('width', width).attr('height', height);
+                simulation.force('center', d3.forceCenter(width / 2, height / 2));
+                simulation.force('radial', d3.forceRadial(300, width / 2, height / 2));
+                simulation.alpha(0.2).restart();
+                updateZoomExtents();
+                updatePositions();
+            });
+            graphResizeObserver.observe(graphContainer);
+
+            const zoomBehavior = d3.zoom()
+                    .filter(event => event.type === 'mousedown' || event.type === 'touchstart')
+                    .scaleExtent([0.5, 3])
+                    .on('zoom', (event) => {
+                        zoomLayer.attr('transform', event.transform);
+                    });
+
+                function updateZoomExtents() {
+                    zoomBehavior
+                        .extent([[0, 0], [width, height]])
+                        .translateExtent([[0, 0], [width, height]]);
+                    svg.call(zoomBehavior);
+                }
+
+                updateZoomExtents();
+
+                const zoomInBtn = document.getElementById('zoom-in');
+                const zoomOutBtn = document.getElementById('zoom-out');
+
+                const zoomStep = 1.2;
+                zoomInBtn.onclick = () => svg.transition().duration(200).call(zoomBehavior.scaleBy, zoomStep);
+                zoomOutBtn.onclick = () => svg.transition().duration(200).call(zoomBehavior.scaleBy, 1 / zoomStep);
+
+                function showLinkNote(event, linkData) {
+                    const rect = graphContainer.getBoundingClientRect();
+                    const x = event.clientX - rect.left + 10;
+                    const y = event.clientY - rect.top + 10;
+
+                    const relation = linkData.relation || 'related';
+                    const s = linkData.source.id || linkData.source;
+                    const t = linkData.target.id || linkData.target;
+                    const sCats = Array.isArray(linkData.source.categories) ? linkData.source.categories : [];
+                    const tCats = Array.isArray(linkData.target.categories) ? linkData.target.categories : [];
+
+                    const lowerS = String(s).toLowerCase();
+                    const lowerT = String(t).toLowerCase();
+                    const commonCats = sCats.filter(c => tCats.includes(c));
+                    const niceCat = (cat) => ({
+                        'animal': 'both are animals',
+                        'plant': 'both are plants',
+                        'food': 'both are foods',
+                        'person': 'both relate to people/roles',
+                        'location': 'both relate to places',
+                        'event': 'both relate to events',
+                        'communication': 'both relate to communication',
+                        'artifact': 'both are physical things'
+                    }[cat] || `they share the "${cat}" category`);
+
+                    let reason = '';
+
+                    if (relation === 'seed') {
+                        reason = `${t} is a related idea expanded from ${s}.`;
+                    } else if (lowerS.includes(lowerT) || lowerT.includes(lowerS)) {
+                        reason = `One directly mentions the other ("${s}" and "${t}").`;
+                    } else if ((sCats.includes('animal') || tCats.includes('animal')) && (lowerS.includes('milk') || lowerS.includes('dairy') || lowerT.includes('milk') || lowerT.includes('dairy'))) {
+                        reason = 'Animals produce milk/dairy products.';
+                    } else if (commonCats.length) {
+                        const preferredOrder = ['animal','plant','food','person','location','event','communication'];
+                        const pick = preferredOrder.find(c => commonCats.includes(c)) || commonCats[0];
+                        reason = niceCat(pick);
+                    } else if (lowerS.includes('farm') || lowerT.includes('farm') || lowerS.includes('livestock') || lowerT.includes('livestock')) {
+                        reason = 'They relate to farming/livestock and food production.';
+                    } else {
+                        reason = 'They are related based on language knowledge (definitions or parent categories).';
+                    }
+
+                    const parts = [];
+                    parts.push(`<b>Why connected:</b> ${reason}`);
+                    parts.push(`Source: ${s}`);
+                    if (sCats.length) parts.push(`Source categories: ${sCats.join(', ')}`);
+                    parts.push(`Target: ${t}`);
+                    if (tCats.length) parts.push(`Target categories: ${tCats.join(', ')}`);
+
+                    linkNote.innerHTML = parts.join('<br>');
+                    linkNote.style.left = `${x}px`;
+                    linkNote.style.top = `${y}px`;
+                    linkNote.style.display = 'block';
+
+                    if (hideNoteTimeout) clearTimeout(hideNoteTimeout);
+                    hideNoteTimeout = setTimeout(() => {
+                        linkNote.style.display = 'none';
+                    }, 4500);
+                }
+
+                svg.on('click', () => {
+                    linkNote.style.display = 'none';
+                    suggestionNote.style.display = 'none';
+                });
+
+                function showNodeSuggestions(event, nodeData) {
+                    const rect = graphContainer.getBoundingClientRect();
+                    const x = event.clientX - rect.left + 10;
+                    const y = event.clientY - rect.top + 10;
+
+                    const suggestionsMap = data.suggestions || {};
+                    const existing = new Set((data.nodes || []).map(n => n.id));
+                    const suggRaw = suggestionsMap[nodeData.id] || [];
+                    const sugg = suggRaw.filter(w => !existing.has(w));
+
+                    if (!sugg.length) {
+                        suggestionNote.innerHTML = `<b>${nodeData.id}</b><br>No suggestions available.`;
+                    } else {
+                        const title = `<b>${nodeData.id}</b><br>Try one of these:`;
+                        const buttons = sugg.slice(0, 3).map(w => `<button class="suggestion-btn" data-word="${w}">${w}</button>`).join('');
+                        suggestionNote.innerHTML = `${title}<br>${buttons}`;
+                    }
+
+                    suggestionNote.style.left = `${x}px`;
+                    suggestionNote.style.top = `${y}px`;
+                    suggestionNote.style.display = 'block';
+
+                    suggestionNote.onclick = (e) => {
+                        const btn = e.target.closest('.suggestion-btn');
+                        if (!btn) return;
+                        const newWord = btn.getAttribute('data-word');
+                        addSuggestionWord(nodeData.id, newWord);
+                        suggestionNote.style.display = 'none';
+                    };
+                }
+
+                function addSuggestionWord(fromId, newWord) {
+                    if (data.nodes.some(n => n.id === newWord)) return;
+
+                    const newNode = { id: newWord, categories: [] };
+                    const srcNode = data.nodes.find(n => n.id === fromId);
+                    const angle = Math.random() * 2 * Math.PI;
+                    const radius = 60;
+                    newNode.x = Math.max(clampMargin, Math.min(width - clampMargin, (srcNode?.x || width/2) + Math.cos(angle) * radius));
+                    newNode.y = Math.max(clampMargin, Math.min(height - clampMargin, (srcNode?.y || height/2) + Math.sin(angle) * radius));
+                    newNode.vx = 0; newNode.vy = 0;
+                    data.nodes.push(newNode);
+                    data.links.push({ source: fromId, target: newWord, relation: 'seed' });
+
+                    const linksG = zoomLayer.select('g.links');
+                    linksG.append('line')
+                        .datum({ source: data.nodes.find(n => n.id === fromId), target: newNode, relation: 'seed' })
+                        .attr('stroke', '#999')
+                        .attr('stroke-width', 3)
+                        .style('cursor', 'pointer')
+                        .on('click', (event, d) => {
+                            event.stopPropagation();
+                            showLinkNote(event, d);
+                        });
+
+                    const hitsG = zoomLayer.select('g.link-hit');
+                    hitsG.append('line')
+                        .datum({ source: data.nodes.find(n => n.id === fromId), target: newNode, relation: 'seed' })
+                        .attr('stroke', '#000')
+                        .attr('stroke-opacity', 0)
+                        .attr('stroke-width', 16)
+                        .style('pointer-events', 'stroke')
+                        .style('cursor', 'pointer')
+                        .on('click', (event, d) => {
+                            event.stopPropagation();
+                            showLinkNote(event, d);
+                        });
+
+                    const nodesG = zoomLayer.select('g.nodes');
+                    const g = nodesG.append('g')
+                        .datum(newNode)
+                        .call(d3.drag().on('start', dragstarted).on('drag', dragged).on('end', dragended))
+                        .on('click', (event, d) => { event.stopPropagation(); showNodeSuggestions(event, d); });
+
+                    g.append('circle')
+                        .attr('r', 18)
+                        .attr('fill', '#000')
+                        .attr('opacity', 0)
+                        .style('cursor', 'pointer');
+
+                    g.append('path')
+                        .attr('d', d3.symbol().type(d3.symbolStar).size(800))
+                        .attr('fill', 'yellow')
+                        .attr('stroke', 'gold')
+                        .attr('stroke-width', 2);
+
+                    g.append('text')
+                        .attr('dy', -20)
+                        .attr('text-anchor', 'middle')
+                        .attr('font-size', '12px')
+                        .attr('fill', '#333')
+                        .text(newWord);
+
+                    link = zoomLayer.select('g.links').selectAll('line');
+                    linkHit = zoomLayer.select('g.link-hit').selectAll('line');
+                    node = zoomLayer.select('g.nodes').selectAll('g');
+
+                    simulation.nodes(data.nodes);
+                    simulation.force('link').links(data.links);
+                    simulation.alpha(0.6).restart();
+                }
+        }
+
+        function updatePanels(data) {
+            const careersList = document.getElementById('careers-list');
+            const wordsList = document.getElementById('words-list');
+            const economyList = document.getElementById('economy-list');
+            const trendsList = document.getElementById('trends-list');
+
+            console.log('Updating panels with data:', data);
+
+            careersList.innerHTML = '';
+            wordsList.innerHTML = '';
+            economyList.innerHTML = '';
+            trendsList.innerHTML = '';
+
+            if (data.careers && Array.isArray(data.careers)) {
+                data.careers.forEach(career => {
+                    const li = document.createElement('li');
+                    li.textContent = career;
+                    careersList.appendChild(li);
+                });
+            } else {
+                careersList.innerHTML = '<li>No careers found.</li>';
+            }
+
+            if (data.words && Array.isArray(data.words)) {
+                data.words.forEach(word => {
+                const li = document.createElement('li');
+                li.textContent = word;
+                wordsList.appendChild(li);
+                });
+
+            } else {
+                wordsList.innerHTML = '<li>No words found.</li>';
+            }
+
+            if (data.economy && Array.isArray(data.economy)) {
+                data.economy.forEach(tag => {
+                    const li = document.createElement('li');
+                    li.textContent = tag;
+                    economyList.appendChild(li);
+                });
+            } else {
+                economyList.innerHTML = '<li>No tags found.</li>';
+            }
+
+            if (data.trends && Array.isArray(data.trends)) {
+                data.trends.forEach(topic => {
+                    const li = document.createElement('li');
+                    li.textContent = topic;
+                    trendsList.appendChild(li);
+                });
+            } else {
+                trendsList.innerHTML = '<li>No trendy topics found.</li>';
+            }
+        }
+
+    </script>
+</body>
+</html>
+

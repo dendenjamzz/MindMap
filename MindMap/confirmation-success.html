@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Confirmed</title>
+  <style>
+    :root {
+      --bg: #0b1224;
+      --card: #0f172a;
+      --stroke: #243249;
+      --text: #e8eefc;
+      --accent: #f8c537;
+      --accent-2: #5eead4;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(120% 140% at 20% 20%, rgba(248,197,55,0.08), transparent 35%),
+                  radial-gradient(120% 140% at 80% 20%, rgba(94,234,212,0.08), transparent 35%),
+                  var(--bg);
+      font-family: 'Segoe UI', sans-serif;
+      color: var(--text);
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: 16px;
+      padding: 32px 28px;
+      max-width: 420px;
+      width: 92%;
+      box-shadow: 0 18px 48px rgba(0,0,0,0.4);
+      text-align: center;
+    }
+    h1 {
+      margin: 0 0 12px;
+      color: var(--accent);
+      font-size: 24px;
+      letter-spacing: 0.2px;
+    }
+    p { margin: 8px 0; color: #aab8d6; line-height: 1.55; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(94,234,212,0.12);
+      color: var(--accent-2);
+      border: 1px solid rgba(94,234,212,0.35);
+      font-weight: 600;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="pill">✓ Email confirmed</div>
+    <h1>All set!</h1>
+    <p>Your email has been confirmed. You can close this tab.</p>
+    <p style="color:#6f7da3; font-size: 14px; margin-top: 14px;">If you were on another device, go back to the app and log in.</p>
+  </div>
+</body>
+</html>
