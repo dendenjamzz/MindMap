@@ -148,7 +148,7 @@
             body: JSON.stringify({ email, password }),
         });
 
-        const data = await response.json(); // Parse the response as JSON
+        const data = await response.json();
 
         if (response.ok) {
     const userData = {
@@ -157,14 +157,13 @@
         email: data.user.email,
         emailConfirmed: data.emailConfirmed
     };
-    console.log('Storing user data in localStorage:', userData); // Add this line for debugging
+    console.log('Storing user data in localStorage:', userData);
     localStorage.setItem('user', JSON.stringify(userData));
 
 
-            // Redirect to confirmation page
             window.location.href = 'confirmation.html';
         } else {
-            console.error('Login failed:', data.error); // Add this line for debugging
+            console.error('Login failed:', data.error);
   
             alert(data.error || 'Failed to log in.');
         }

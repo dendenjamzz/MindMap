@@ -8,7 +8,13 @@ import requests
 
 app = Flask(__name__)
 
-# ✅ Load NLP model
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    return response
+
 nlp_model = None
 
 def get_nlp_model():
@@ -20,8 +26,6 @@ def get_nlp_model():
         print("Model loaded.")
     return nlp_model
 
-# ✅ Download WordNet resources
-import nltk
 try:
     nltk.data.find('corpora/wordnet')
 except LookupError:
@@ -33,7 +37,6 @@ except LookupError:
 
 CONCEPTNET_API_URL = "http://api.conceptnet.io/c/en/"
 
-# ✅ Comprehensive job database with semantic field mappings
 JOB_DATABASE = {
     'animal': ['Veterinarian', 'Animal Trainer', 'Zoologist', 'Wildlife Biologist', 'Zookeeper', 'Pet Groomer', 'Animal Behaviorist', 'Marine Biologist', 'Aquarist', 'Animal Control Officer', 'Livestock Manager', 'Dairy Farmer', 'Rancher', 'Animal Nutritionist', 'Veterinary Technician'],
     'plant': ['Botanist', 'Horticulturist', 'Agricultural Scientist', 'Landscape Architect', 'Forester', 'Arborist', 'Plant Pathologist', 'Greenhouse Manager', 'Farm Manager', 'Crop Consultant', 'Soil Scientist', 'Agricultural Engineer'],
@@ -57,7 +60,70 @@ JOB_DATABASE = {
     'hospitality': ['Hotel Manager', 'Event Planner', 'Travel Agent', 'Concierge', 'Restaurant Manager', 'Tourism Manager', 'Catering Manager', 'Guest Relations Manager'],
 }
 
-# NO HARDCODED MAPPINGS - System uses 100% dynamic semantic analysis via WordNet
+PROFANITY_KEYWORDS = {
+    # Common profanity/offensive terms (English)
+    'shit', 'damn', 'hell', 'ass', 'bitch', 'crap', 'piss', 'dick', 'cock',
+    'pussy', 'fuck', 'tit', 'wank', 'bollocks', 'arse', 'bastard', 'twat',
+    'douchebag', 'asshole', 'jerk', 'fag', 'faggot', 'homo', 'dyke',
+    'nigger', 'retard', 'slut', 'whore', 'skank', 'tramp', 'hoe',
+    # Offensive ethnic/religious slurs - kept minimal but included
+    'kike', 'wetback', 'spick', 'chink', 'gook', 'paki', 'raghead',
+    # Additional abusive terms
+    'kill', 'murder', 'rape', 'torture', 'die', 'dead'
+}
+
+def is_profanity(word):
+    """
+    Semantic profanity detection using WordNet context + keyword matching.
+    Returns True if word is offensive/inappropriate.
+    """
+    word_lower = word.lower().strip()
+    
+    # Direct keyword match (fastest)
+    if word_lower in PROFANITY_KEYWORDS:
+        return True
+    
+    # Check if word is an obfuscation (contains profanity word but is not a normal English word containing it)
+    # Only flag if the profanity word is at the start, end, or surrounded by non-letter characters
+    for bad_word in PROFANITY_KEYWORDS:
+        if bad_word in word_lower:
+            # Find the position of bad_word in word_lower
+            idx = word_lower.find(bad_word)
+            before_char = word_lower[idx - 1] if idx > 0 else ' '
+            after_idx = idx + len(bad_word)
+            after_char = word_lower[after_idx] if after_idx < len(word_lower) else ' '
+            
+            # Only flag as profanity if the bad word is:
+            # - At the start/end with only punctuation around it
+            # - OR surrounded by non-letter characters (indicating obfuscation)
+            before_is_letter = before_char.isalpha()
+            after_is_letter = after_char.isalpha()
+            
+            # If bad word is fully surrounded by letters (like "hello" with "hell"), it's likely a normal word
+            if before_is_letter and after_is_letter:
+                continue
+            
+            # If at least one side is not a letter, it might be obfuscation
+            if not before_is_letter or not after_is_letter:
+                # But allow normal words like "shell", "hello", etc.
+                # Only flag if it looks deliberately obfuscated (with numbers or special chars)
+                if any(c in word_lower for c in ['*', '-', '_', '0', '1', '3', '4', '5', '7', '8', '9']):
+                    return True
+    
+    # Semantic check: analyze WordNet definition for violent/offensive context
+    try:
+        synsets = wordnet.synsets(word_lower)
+        if synsets:
+            definition = synsets[0].definition().lower()
+            offensive_indicators = ['kill', 'murder', 'rape', 'abuse', 'harm', 'violence', 'assault']
+            # Only flag if definition directly mentions violence AND word is short/unusual
+            if any(indicator in definition for indicator in offensive_indicators):
+                if len(word_lower) < 5:  # Only flag short, unusual words
+                    return True
+    except Exception:
+        pass
+    
+    return False
 
 # ✅ Helpers
 def detect_and_translate(text):
@@ -708,6 +774,48 @@ def process_words():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+# ✅ HEALTH CHECK ENDPOINT
+@app.route('/health', methods=['GET'])
+def health():
+    """Simple health check endpoint."""
+    return jsonify({"status": "ok", "service": "Flask NLP"}), 200
+
+# ✅ NEW ENDPOINT: Content Moderation Check
+@app.route('/check-profanity', methods=['POST'])
+def check_profanity():
+    """
+    Check if submitted words contain profanity.
+    Returns { "clean": bool, "rejected_words": [list of bad words] }
+    """
+    try:
+        data = request.get_json() or {}
+        words_input = data.get('words', '')
+        
+        # Handle both string and list inputs
+        if isinstance(words_input, list):
+            words_list = [w.strip().lower() for w in words_input if w and isinstance(w, str)]
+        else:
+            words_input = words_input.strip() if isinstance(words_input, str) else ''
+            if not words_input:
+                return jsonify({"clean": True, "rejected_words": []})
+            words_list = [w.strip().lower() for w in words_input.split(',') if w.strip()]
+        
+        if not words_list:
+            return jsonify({"clean": True, "rejected_words": []})
+        
+        rejected = [w for w in words_list if is_profanity(w)]
+        
+        return jsonify({
+            "clean": len(rejected) == 0,
+            "rejected_words": rejected,
+            "total_words": len(words_list),
+            "message": f"Found {len(rejected)} inappropriate word(s)." if rejected else "All words are acceptable."
+        })
+    
+    except Exception as e:
+        print(f"Error in /check-profanity: {e}")
+        return jsonify({"error": str(e), "clean": False}), 500
 
 if __name__ == "__main__":
     app.run(debug=False, threaded=True, host='127.0.0.1', port=5000)

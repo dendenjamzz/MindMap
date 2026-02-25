@@ -9,14 +9,11 @@ const axios = require('axios');
 
 dotenv.config();
 
-const allowedOrigins = (process.env.FRONTEND_ORIGIN || '').split(',').map(o => o.trim()).filter(Boolean);
-const corsDefaults = ['http://localhost:3000', 'http://localhost:3002'];
+const EMAIL_CONFIRMATION_REQUIRED = String(process.env.EMAIL_CONFIRMATION_REQUIRED || '').toLowerCase() === 'true';
+
 const corsOptions = {
     origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin) || corsDefaults.includes(origin)) {
-            return callback(null, true);
-        }
-        return callback(new Error('Not allowed by CORS'));
+        return callback(null, true);
     },
     methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Accept'],
@@ -32,9 +29,49 @@ app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+let db = null;
+const dbConnectionMeta = {
+    connected: false,
+    error: 'Not initialized',
+    configUsed: null,
+};
+
+let transporter = null;
+const emailState = {
+    configured: false,
+    ready: false,
+    error: 'Not initialized',
+};
+
+app.get('/health', (req, res) => {
+    const healthy = dbConnectionMeta.connected;
+    res.status(healthy ? 200 : 503).json({
+        status: healthy ? 'ok' : 'degraded',
+        service: 'Node.js Express',
+        dependencies: {
+            database: {
+                connected: dbConnectionMeta.connected,
+                error: dbConnectionMeta.error,
+                host: dbConnectionMeta.configUsed?.host || null,
+                user: dbConnectionMeta.configUsed?.user || null,
+                database: dbConnectionMeta.configUsed?.database || null,
+            },
+            email: {
+                configured: emailState.configured,
+                ready: emailState.ready,
+                error: emailState.error,
+            }
+        }
+    });
+});
+
 app.get('/confirm', (req, res) => {
     const { email } = req.query;
     console.log('Email confirmation received for:', email);
+
+    if (!db) {
+        return res.status(503).send('Database unavailable. Please check MySQL connection.');
+    }
 
     db.getConnection((err, conn) => {
         if (err) {
@@ -69,6 +106,10 @@ app.get('/is-confirmed', (req, res) => {
     const { email } = req.query;
     if (!email) return res.status(400).json({ confirmed: false, error: 'Email is required' });
 
+    if (!db) {
+        return res.status(503).json({ confirmed: false, error: 'Database unavailable. Please check MySQL connection.' });
+    }
+
     db.getConnection((err, conn) => {
         if (err) {
             console.error('Database connection error:', err);
@@ -94,17 +135,33 @@ app.get('/is-confirmed', (req, res) => {
 
 app.use(express.static(path.join(__dirname, '../../')));
 
-const dbConfig = {
+const dbBaseConfig = {
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
+};
+
+const dbPoolOptions = {
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
 };
 
-async function ensureDatabase() {
+function buildDbCandidates() {
+    const configured = {
+        ...dbBaseConfig,
+        password: typeof dbBaseConfig.password === 'string' ? dbBaseConfig.password : ''
+    };
+
+    const candidates = [configured];
+    if (configured.user === 'root' && configured.password) {
+        candidates.push({ ...configured, password: '' });
+    }
+    return candidates;
+}
+
+async function ensureDatabaseWithConfig(dbConfig) {
     return new Promise((resolve, reject) => {
         const adminConn = mysql.createConnection({
             host: dbConfig.host,
@@ -200,34 +257,76 @@ async function ensureDatabase() {
     });
 }
 
-let db;
-ensureDatabase()
-    .then(() => {
-        db = mysql.createPool(dbConfig);
-    })
-    .catch(err => {
-        console.error('❌ Database initialization failed. Check credentials / MySQL server.', err);
+async function initializeDatabase() {
+    const candidates = buildDbCandidates();
+    let lastError = null;
+
+    for (const candidate of candidates) {
+        try {
+            await ensureDatabaseWithConfig(candidate);
+            db = mysql.createPool({ ...candidate, ...dbPoolOptions });
+            dbConnectionMeta.connected = true;
+            dbConnectionMeta.error = null;
+            dbConnectionMeta.configUsed = {
+                host: candidate.host,
+                user: candidate.user,
+                database: candidate.database,
+            };
+            console.log('✅ Database pool initialized successfully.');
+            return;
+        } catch (err) {
+            lastError = err;
+            console.warn(`⚠️ Database config attempt failed for user "${candidate.user}" on host "${candidate.host}".`);
+        }
+    }
+
+    db = null;
+    dbConnectionMeta.connected = false;
+    dbConnectionMeta.error = lastError?.message || 'Unknown DB init error';
+    dbConnectionMeta.configUsed = null;
+    console.error('❌ Database initialization failed. Check DB_* credentials in .env.');
+}
+
+initializeDatabase();
+
+const emailUser = String(process.env.EMAIL || '').trim();
+const emailPassword = String(process.env.EMAIL_PASSWORD || '').trim();
+
+if (emailUser && emailPassword) {
+    emailState.configured = true;
+    transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: emailUser,
+            pass: emailPassword,
+        },
     });
 
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL,
-        pass: process.env.EMAIL_PASSWORD,
-    },
-});
-
-transporter.verify((error, success) => {
-    if (error) {
-        console.error('Error configuring email transporter:', error);
-    } else {
-        console.log('Email transporter is ready to send messages');
-    }
-});
+    transporter.verify((error) => {
+        if (error) {
+            emailState.ready = false;
+            emailState.error = error.message;
+            console.error('Error configuring email transporter:', error.message);
+        } else {
+            emailState.ready = true;
+            emailState.error = null;
+            console.log('Email transporter is ready to send messages');
+        }
+    });
+} else {
+    emailState.configured = false;
+    emailState.ready = false;
+    emailState.error = 'Missing EMAIL or EMAIL_PASSWORD';
+    console.warn('⚠️ Email is not configured. Signup will continue without email confirmation unless EMAIL_CONFIRMATION_REQUIRED=true.');
+}
 
 app.post('/signup', async (req, res) => {
     const { username, email, password } = req.body;
     console.log('Signup request received:', { username, email });
+
+    if (!db) {
+        return res.status(503).json({ error: 'Database unavailable. Please check MySQL connection.' });
+    }
 
     try {
         console.log('Checking if user already exists in the database...');
@@ -255,16 +354,33 @@ app.post('/signup', async (req, res) => {
                 console.log('Hashing password...');
                 const hashedPassword = await bcrypt.hash(password, 10);
 
+                if (EMAIL_CONFIRMATION_REQUIRED && !emailState.ready) {
+                    conn.release();
+                    return res.status(503).json({
+                        error: 'Email service unavailable. Set a valid EMAIL_PASSWORD (Gmail app password) or disable EMAIL_CONFIRMATION_REQUIRED.'
+                    });
+                }
+
+                const initialConfirmed = emailState.ready ? 0 : 1;
+
                 console.log('Inserting new user into the database...');
                 conn.query(
                     'INSERT INTO users (username, email, password, confirmed) VALUES (?, ?, ?, ?)',
-                    [username, email, hashedPassword, 0],
+                    [username, email, hashedPassword, initialConfirmed],
                     (err, result) => {
                         if (err) {
                             conn.release();
                             console.error('❌ Database error during user insert:', err.message);
                             console.error('🛠️ Full error object:', err);
                             return res.status(500).json({ error: 'Failed to create user', detail: err.message });
+                        }
+
+                        if (!emailState.ready) {
+                            conn.release();
+                            return res.status(200).json({
+                                message: 'Signup successful! Email confirmation is disabled in local mode.',
+                                emailConfirmationRequired: false
+                            });
                         }
 
                         console.log('Sending confirmation email...');
@@ -283,14 +399,33 @@ app.post('/signup', async (req, res) => {
                         };
 
                         transporter.sendMail(mailOptions, (error, info) => {
-                            conn.release();
                             if (error) {
-                                console.error('Error sending confirmation email:', error);
-                                return res.status(500).json({ error: 'Error sending confirmation email', detail: error.message });
+                                console.error('Error sending confirmation email:', error.message);
+                                if (EMAIL_CONFIRMATION_REQUIRED) {
+                                    conn.release();
+                                    return res.status(500).json({ error: 'Error sending confirmation email', detail: error.message });
+                                }
+
+                                conn.query('UPDATE users SET confirmed = 1 WHERE id = ?', [result.insertId], (updateErr) => {
+                                    conn.release();
+                                    if (updateErr) {
+                                        return res.status(200).json({
+                                            message: 'Signup successful, but confirmation email failed. Please contact support to confirm your account.',
+                                            emailConfirmationRequired: true
+                                        });
+                                    }
+
+                                    return res.status(200).json({
+                                        message: 'Signup successful! Email delivery failed, so your account was auto-confirmed for local development.',
+                                        emailConfirmationRequired: false
+                                    });
+                                });
+                                return;
                             }
 
                             console.log('Confirmation email sent:', info.response);
-                            res.status(200).json({ message: 'Signup successful! Please check your email.' });
+                            conn.release();
+                            res.status(200).json({ message: 'Signup successful! Please check your email.', emailConfirmationRequired: true });
                         });
                     }
                 );
@@ -306,6 +441,10 @@ app.post('/login', async (req, res) => {
     console.log("Login route hit");
     const { email, password } = req.body;
     console.log('Login request received:', { email });
+
+    if (!db) {
+        return res.status(503).json({ error: 'Database unavailable. Please check MySQL connection.' });
+    }
 
     db.getConnection((err, conn) => {
         if (err) {
@@ -361,6 +500,10 @@ app.post('/submit-report', (req, res) => {
         return res.status(400).json({ message: 'Report content and user ID are required.' });
     }
 
+    if (!db) {
+        return res.status(503).json({ message: 'Database unavailable. Please check MySQL connection.' });
+    }
+
     db.getConnection((err, conn) => {
         if (err) {
             console.error('Database connection error:', err);
@@ -390,6 +533,10 @@ app.post('/save-constellation', (req, res) => {
         return res.status(400).json({ message: 'User ID, name, and constellation data are required.' });
     }
     
+    if (!db) {
+        return res.status(503).json({ message: 'Database unavailable. Please check MySQL connection.' });
+    }
+    
     db.getConnection((err, conn) => {
         if (err) {
             console.error('Database connection error:', err);
@@ -416,6 +563,10 @@ app.put('/update-constellation/:id', (req, res) => {
 
     if (!constellationId || !name || !constellationData) {
         return res.status(400).json({ message: 'Constellation ID, name, and constellation data are required.' });
+    }
+
+    if (!db) {
+        return res.status(503).json({ message: 'Database unavailable. Please check MySQL connection.' });
     }
 
     db.getConnection((err, conn) => {
@@ -454,6 +605,10 @@ app.put('/update-constellation/:id', (req, res) => {
 
 app.get('/get-constellations/:userId', (req, res) => {
     const userId = req.params.userId;
+    
+    if (!db) {
+        return res.status(503).json({ message: 'Database unavailable. Please check MySQL connection.' });
+    }
     
     db.getConnection((err, conn) => {
         if (err) {
@@ -500,6 +655,10 @@ app.get('/get-constellations/:userId', (req, res) => {
 
 app.get('/constellation/:id', (req, res) => {
     const constellationId = req.params.id;
+
+    if (!db) {
+        return res.status(503).json({ message: 'Database unavailable. Please check MySQL connection.' });
+    }
 
     db.getConnection((err, conn) => {
         if (err) {
@@ -566,6 +725,6 @@ app.post('/process-words', async (req, res) => {
 });
 
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });

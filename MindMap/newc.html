@@ -123,6 +123,30 @@
             resize: both;
             overflow: hidden;
         }
+        #graph-loading {
+            position: absolute;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.82);
+            color: #0b1224;
+            font-weight: 700;
+            z-index: 30;
+            pointer-events: none;
+        }
+        .loading-spinner {
+            width: 16px;
+            height: 16px;
+            border-radius: 999px;
+            border: 2px solid rgba(15, 23, 42, 0.22);
+            border-top-color: #0f172a;
+            animation: constellationSpin 0.8s linear infinite;
+        }
+        @keyframes constellationSpin {
+            to { transform: rotate(360deg); }
+        }
         #zoom-controls {
             position: absolute;
             right: 12px;
@@ -237,6 +261,7 @@
     </div>
     <div id="status-area" style="position:fixed; top:14px; right:14px; display:flex; flex-direction:column; gap:8px; z-index:2000;"></div>
     <div id="graph-container">
+        <div id="graph-loading"><span class="loading-spinner"></span><span id="graph-loading-text">Loading constellation...</span></div>
         <div id="zoom-controls">
             <button id="zoom-in" class="zoom-btn" title="Zoom in" aria-label="Zoom in">+</button>
             <button id="zoom-out" class="zoom-btn" title="Zoom out" aria-label="Zoom out">−</button>
@@ -381,9 +406,18 @@
             }, duration);
         }
 
+        function setGraphLoading(isLoading, message = 'Loading constellation...') {
+            const overlay = document.getElementById('graph-loading');
+            const label = document.getElementById('graph-loading-text');
+            if (!overlay || !label) return;
+            label.textContent = message;
+            overlay.style.display = isLoading ? 'flex' : 'none';
+        }
+
         async function loadConstellationById(id, { isView = false } = {}) {
             if (!id) return;
             editingId = isView ? null : id;
+            setGraphLoading(true, 'Loading constellation...');
             try {
                 const resp = await fetch(`http://localhost:3002/constellation/${id}`);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -392,6 +426,8 @@
             } catch (err) {
                 console.error('Error loading constellation by id:', err);
                 showStatus('Could not load this constellation.', 'error', 3200);
+            } finally {
+                setGraphLoading(false);
             }
         }
 
@@ -445,6 +481,36 @@
                 return;
             }
             const words = wordsArr.join(',');
+            const submitButton = document.getElementById('submit-button');
+            if (submitButton.disabled) return;
+
+            const originalSubmitText = submitButton.textContent;
+            submitButton.disabled = true;
+            submitButton.textContent = 'Generating...';
+            setGraphLoading(true, 'Generating constellation...');
+
+            try {
+                const profanityCheckResponse = await fetch('http://127.0.0.1:5000/check-profanity', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ words })
+                });
+
+                if (profanityCheckResponse.ok) {
+                    const profanityData = await profanityCheckResponse.json();
+                    
+                    if (!profanityData.clean && profanityData.rejected_words.length > 0) {
+                        const rejectedList = profanityData.rejected_words.join(', ');
+                        alert(`❌ You used inappropriate language:\n\n"${rejectedList}"\n\nPlease remove these words and try again.`);
+                        submitButton.disabled = false;
+                        submitButton.textContent = originalSubmitText;
+                        setGraphLoading(false);
+                        return;
+                    }
+                }
+            } catch (profanityError) {
+                console.warn('Profanity check unavailable, proceeding anyway:', profanityError);
+            }
 
             try {
                 const response = await fetch('http://localhost:3002/process-words', {
@@ -473,6 +539,10 @@
                 }
             } catch (error) {
                 showStatus('Processing unavailable. Please try again.', 'error');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = originalSubmitText;
+                setGraphLoading(false);
             }
         });
 
@@ -621,13 +691,13 @@
             let nodeOk = false;
             let flaskOk = false;
             try {
-                const r = await fetch('http://localhost:3002/get-constellations/0', { method: 'GET' });
+                const r = await fetch('http://localhost:3002/health', { method: 'GET' });
                 nodeOk = r.ok;
             } catch (_) { nodeOk = false; }
 
             try {
                 const f = await fetch('http://127.0.0.1:5000/health');
-                flaskOk = f.ok || f.status === 404;
+                flaskOk = f.ok;
             } catch (_) { flaskOk = false; }
 
             if (!nodeOk || !flaskOk) {

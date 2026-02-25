@@ -245,6 +245,23 @@
             color: var(--muted);
             font-style: italic;
         }
+        #constellations-loading.loading {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #constellations-loading.loading::before {
+            content: '';
+            width: 14px;
+            height: 14px;
+            border-radius: 999px;
+            border: 2px solid rgba(94, 234, 212, 0.25);
+            border-top-color: var(--accent-2);
+            animation: constellationSpin 0.8s linear infinite;
+        }
+        @keyframes constellationSpin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -271,7 +288,7 @@
             
             <div id="saved-constellations">
                 <h2>My Saved Constellations</h2>
-                <div id="constellations-loading">Loading your constellations...</div>
+                <div id="constellations-loading" class="loading">Loading your constellations...</div>
                 <div class="constellation-list" id="constellation-list"></div>
             </div>
         </div>
@@ -367,6 +384,13 @@
             const container = document.getElementById('saved-constellations');
             const loadingEl = document.getElementById('constellations-loading');
             const listEl = document.getElementById('constellation-list');
+            const setLoading = (isLoading, message) => {
+                loadingEl.textContent = message;
+                loadingEl.style.display = 'inline-flex';
+                loadingEl.classList.toggle('loading', isLoading);
+            };
+
+            setLoading(true, 'Loading your constellations...');
             
             try {
                 const response = await fetch(`http://localhost:3002/get-constellations/${userId}`);
@@ -378,11 +402,12 @@
                 console.log('Loaded constellations:', constellations);
                 
                 if (constellations.length === 0) {
-                    loadingEl.textContent = 'No saved constellations yet. Create your first one!';
+                    setLoading(false, 'No saved constellations yet. Create your first one!');
                     return;
                 }
                 
                 loadingEl.style.display = 'none';
+                loadingEl.classList.remove('loading');
                 listEl.innerHTML = '';
                 
                 constellations.forEach(constellation => {
@@ -480,7 +505,7 @@
                 document.getElementById('constellations-count').textContent = constellations.length;
             } catch (error) {
                 console.error('Error loading constellations:', error);
-                loadingEl.textContent = 'Error loading constellations. Please refresh the page.';
+                setLoading(false, 'Error loading constellations. Please refresh the page.');
             }
         }
         function createMiniConstellation(data, size = 200) {
@@ -775,8 +800,10 @@
             const user = JSON.parse(localStorage.getItem('user'));
             console.log('Manual refresh - User data:', user);
             if (user && user.id) {
-                document.getElementById('constellations-loading').style.display = 'block';
-                document.getElementById('constellations-loading').textContent = 'Loading your constellations...';
+                const loadingEl = document.getElementById('constellations-loading');
+                loadingEl.style.display = 'inline-flex';
+                loadingEl.classList.add('loading');
+                loadingEl.textContent = 'Loading your constellations...';
                 document.getElementById('constellation-list').innerHTML = '';
                 loadSavedConstellations(user.id);
             } else {
@@ -868,7 +895,7 @@
             let nodeOk = false;
             let flaskOk = false;
             try {
-                const r = await fetch('http://localhost:3002/get-constellations/0', { method: 'GET' });
+                const r = await fetch('http://localhost:3002/health', { method: 'GET' });
                 nodeOk = r.ok;
             } catch (_) { nodeOk = false; }
 
