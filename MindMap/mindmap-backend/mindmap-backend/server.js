@@ -7,6 +7,12 @@ const mysql = require('mysql2');
 const cors = require('cors');
 const axios = require('axios');
 
+// security-related packages
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
+const { body, validationResult } = require('express-validator');
+
 dotenv.config();
 
 const EMAIL_CONFIRMATION_REQUIRED = String(process.env.EMAIL_CONFIRMATION_REQUIRED || '').toLowerCase() === 'true';
@@ -22,6 +28,21 @@ const corsOptions = {
 
 const app = express();
 const PORT = 3002;
+
+// basic security headers
+app.use(helmet());
+
+// simple rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.use(limiter);
+
+// JWT secret must be set in environment for production
+const JWT_SECRET = process.env.JWT_SECRET || 'please_change_this_to_a_strong_secret';
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
@@ -320,9 +341,21 @@ if (emailUser && emailPassword) {
     console.warn('⚠️ Email is not configured. Signup will continue without email confirmation unless EMAIL_CONFIRMATION_REQUIRED=true.');
 }
 
-app.post('/signup', async (req, res) => {
-    const { username, email, password } = req.body;
-    console.log('Signup request received:', { username, email });
+app.post('/signup',
+    // validation and sanitization
+    [
+        body('username').trim().isLength({ min: 3 }).withMessage('Username must be at least 3 characters'),
+        body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+        body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        const { username, email, password } = req.body;
+        console.log('Signup request received:', { username, email });
 
     if (!db) {
         return res.status(503).json({ error: 'Database unavailable. Please check MySQL connection.' });
@@ -352,7 +385,7 @@ app.post('/signup', async (req, res) => {
                 }
 
                 console.log('Hashing password...');
-                const hashedPassword = await bcrypt.hash(password, 10);
+                const hashedPassword = await bcrypt.hash(password, 12); // stronger cost factor
 
                 if (EMAIL_CONFIRMATION_REQUIRED && !emailState.ready) {
                     conn.release();
@@ -437,10 +470,20 @@ app.post('/signup', async (req, res) => {
     }
 });
 
-app.post('/login', async (req, res) => {
-    console.log("Login route hit");
-    const { email, password } = req.body;
-    console.log('Login request received:', { email });
+app.post('/login',
+    [
+        body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+        body('password').isLength({ min: 8 }).withMessage('Password required')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        console.log("Login route hit");
+        const { email, password } = req.body;
+        console.log('Login request received:', { email });
 
     if (!db) {
         return res.status(503).json({ error: 'Database unavailable. Please check MySQL connection.' });
@@ -482,22 +525,39 @@ app.post('/login', async (req, res) => {
             }
 
             console.log('Login successful for user:', email);
+            // issue JWT token
+            const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
             res.status(200).json({ 
                 message: 'Login successful',
+                token,
                 emailConfirmed: user.confirmed === 1,
-                user: { id:user.id, username: user.username, email: user.email}
+                user: { id: user.id, username: user.username, email: user.email }
             });
         });
     });
 });
 
-app.post('/submit-report', (req, res) => {
-    const { report, id } = req.body;
+// middleware to guard endpoints
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Missing token' });
 
-    console.log('Received report:', { report, id });
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.status(403).json({ error: 'Invalid token' });
+        req.user = user;
+        next();
+    });
+}
 
-    if (!report || !id) {
-        return res.status(400).json({ message: 'Report content and user ID are required.' });
+app.post('/submit-report', authenticateToken, (req, res) => {
+    const { report } = req.body;
+    const id = req.user.id;
+
+    console.log('Received report from user', id, { report });
+
+    if (!report) {
+        return res.status(400).json({ message: 'Report content is required.' });
     }
 
     if (!db) {
@@ -524,13 +584,14 @@ app.post('/submit-report', (req, res) => {
     });
 });
 
-app.post('/save-constellation', (req, res) => {
-    const { userId, name, constellationData } = req.body;
+app.post('/save-constellation', authenticateToken, (req, res) => {
+    const { name, constellationData } = req.body;
+    const userId = req.user.id;
     
-    console.log('Received save constellation request:', { userId, name });
+    console.log('Received save constellation request from user', userId, { name });
     
-    if (!userId || !name || !constellationData) {
-        return res.status(400).json({ message: 'User ID, name, and constellation data are required.' });
+    if (!name || !constellationData) {
+        return res.status(400).json({ message: 'Name and constellation data are required.' });
     }
     
     if (!db) {
@@ -557,7 +618,7 @@ app.post('/save-constellation', (req, res) => {
     });
 });
 
-app.put('/update-constellation/:id', (req, res) => {
+app.put('/update-constellation/:id', authenticateToken, (req, res) => {
     const constellationId = req.params.id;
     const { name, constellationData } = req.body;
 

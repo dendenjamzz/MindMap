@@ -151,15 +151,18 @@
         const data = await response.json();
 
         if (response.ok) {
-    const userData = {
-        id: data.user.id,
-        username: data.user.username,
-        email: data.user.email,
-        emailConfirmed: data.emailConfirmed
-    };
-    console.log('Storing user data in localStorage:', userData);
-    localStorage.setItem('user', JSON.stringify(userData));
-
+            // store token alongside user info
+            const userData = {
+                id: data.user.id,
+                username: data.user.username,
+                email: data.user.email,
+                emailConfirmed: data.emailConfirmed
+            };
+            console.log('Storing user data in localStorage:', userData);
+            localStorage.setItem('user', JSON.stringify(userData));
+            if (data.token) {
+                localStorage.setItem('token', data.token);
+            }
 
             window.location.href = 'confirmation.html';
         } else {

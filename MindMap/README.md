@@ -21,10 +21,14 @@ MindMap is a lightweight mind-mapping app with email-confirmed accounts, MySQL p
 - `APP_URL` (public URL for confirmation links)
 - `FRONTEND_ORIGIN` (comma-separated allowed origins for CORS)
 - `FLASK_URL` (e.g., `http://127.0.0.1:5000/process`)
+- **`JWT_SECRET`** – a strong random string used to sign authentication tokens. **Do not** commit it; set in production.
+
 
 ## Notes
 - Database tables auto-provision on startup.
 - Email confirmation is required before login succeeds.
+- JWT tokens are now issued on login and must be sent in the `Authorization: Bearer <token>` header for protected endpoints (`/save-constellation`, `/update-constellation`, `/submit-report`, etc.).
+- Basic security headers (Helmet) and rate limiting have been added to help mitigate common web attacks.
 - `/process-words` proxies to the Flask service; keep it running.
 
 ## License
