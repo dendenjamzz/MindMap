@@ -1,0 +1,10 @@
+.venv/
+MindMap/node_modules/
+MindMap/mindmap-backend/mindmap-backend/node_modules/
+*.log
+serverlog.txt
+test_output.txt
+.env
+*.pyc
+__pycache__/
+.vscode/
