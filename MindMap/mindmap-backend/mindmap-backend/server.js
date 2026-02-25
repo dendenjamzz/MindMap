@@ -341,6 +341,7 @@ if (emailUser && emailPassword) {
     console.warn('⚠️ Email is not configured. Signup will continue without email confirmation unless EMAIL_CONFIRMATION_REQUIRED=true.');
 }
 
+<<<<<<< HEAD:mindmap-backend/mindmap-backend/server.js
 app.post('/signup',
     // validation and sanitization
     [
@@ -356,6 +357,15 @@ app.post('/signup',
 
         const { username, email, password } = req.body;
         console.log('Signup request received:', { username, email });
+
+    if (!db) {
+        return res.status(503).json({ error: 'Database unavailable. Please check MySQL connection.' });
+    }
+=======
+app.post('/signup', async (req, res) => {
+    const { username, email, password } = req.body;
+    console.log('Signup request received:', { username, email });
+>>>>>>> 0700c93a4a685fca83c83a4b3d42aa12fc0e29e6:MindMap/mindmap-backend/mindmap-backend/server.js
 
     if (!db) {
         return res.status(503).json({ error: 'Database unavailable. Please check MySQL connection.' });
@@ -386,6 +396,15 @@ app.post('/signup',
 
                 console.log('Hashing password...');
                 const hashedPassword = await bcrypt.hash(password, 12); // stronger cost factor
+
+                if (EMAIL_CONFIRMATION_REQUIRED && !emailState.ready) {
+                    conn.release();
+                    return res.status(503).json({
+                        error: 'Email service unavailable. Set a valid EMAIL_PASSWORD (Gmail app password) or disable EMAIL_CONFIRMATION_REQUIRED.'
+                    });
+                }
+
+                const initialConfirmed = emailState.ready ? 0 : 1;
 
                 if (EMAIL_CONFIRMATION_REQUIRED && !emailState.ready) {
                     conn.release();
@@ -489,6 +508,10 @@ app.post('/login',
         return res.status(503).json({ error: 'Database unavailable. Please check MySQL connection.' });
     }
 
+    if (!db) {
+        return res.status(503).json({ error: 'Database unavailable. Please check MySQL connection.' });
+    }
+
     db.getConnection((err, conn) => {
         if (err) {
             console.error('Database connection error:', err);
@@ -564,6 +587,10 @@ app.post('/submit-report', authenticateToken, (req, res) => {
         return res.status(503).json({ message: 'Database unavailable. Please check MySQL connection.' });
     }
 
+    if (!db) {
+        return res.status(503).json({ message: 'Database unavailable. Please check MySQL connection.' });
+    }
+
     db.getConnection((err, conn) => {
         if (err) {
             console.error('Database connection error:', err);
@@ -592,6 +619,10 @@ app.post('/save-constellation', authenticateToken, (req, res) => {
     
     if (!name || !constellationData) {
         return res.status(400).json({ message: 'Name and constellation data are required.' });
+    }
+    
+    if (!db) {
+        return res.status(503).json({ message: 'Database unavailable. Please check MySQL connection.' });
     }
     
     if (!db) {
