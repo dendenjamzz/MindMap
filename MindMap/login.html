@@ -151,7 +151,7 @@
         const data = await response.json();
 
         if (response.ok) {
-<<<<<<< HEAD:login.html
+
             // store token alongside user info
             const userData = {
                 id: data.user.id,
@@ -165,7 +165,7 @@
                 localStorage.setItem('token', data.token);
             }
 
-=======
+
     const userData = {
         id: data.user.id,
         username: data.user.username,
@@ -176,7 +176,7 @@
     localStorage.setItem('user', JSON.stringify(userData));
 
 
->>>>>>> 0700c93a4a685fca83c83a4b3d42aa12fc0e29e6:MindMap/login.html
+
             window.location.href = 'confirmation.html';
         } else {
             console.error('Login failed:', data.error);
