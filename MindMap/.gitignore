@@ -1,3 +1,23 @@
+# Node modules
+node_modules/
+mindmap-backend/mindmap-backend/node_modules/
+
+# Env files
+.env
+.env.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build outputs
+/dist
+/build
 .venv/
 MindMap/node_modules/
 MindMap/mindmap-backend/mindmap-backend/node_modules/
