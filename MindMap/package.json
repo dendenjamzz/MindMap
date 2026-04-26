@@ -1,5 +1,8 @@
 {
   "name": "mindmap-frontend",
   "private": true,
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "dependencies": {
+    "axios": "^1.14.0"
+  }
 }
