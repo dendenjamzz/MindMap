@@ -3,248 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="stylesheet/styles.css">
     <title>Word Constellation</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
-
-    <style>
-        :root {
-            --bg: #0b1224;
-            --panel: #0f172a;
-            --panel-strong: #111a31;
-            --text: #e8eefc;
-            --muted: #9fb2d7;
-            --accent: #f8c537;
-            --accent-2: #5eead4;
-            --stroke: #243249;
-        }
-        * { box-sizing: border-box; }
-        body {
-            font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
-            background: radial-gradient(circle at 20% 20%, rgba(94, 234, 212, 0.06), transparent 26%),
-                        radial-gradient(circle at 80% 10%, rgba(248, 197, 55, 0.08), transparent 30%),
-                        linear-gradient(140deg, #050915 0%, #0b1224 50%, #0a152e 100%);
-            min-height: 100vh;
-            margin: 0;
-            color: var(--text);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px 18px 32px;
-        }
-        .form-container {
-            background: var(--panel);
-            padding: 24px 22px 20px 22px;
-            border-radius: 18px;
-            border: 1px solid var(--stroke);
-            width: 100%;
-            max-width: 760px;
-            margin: 12px 0 18px 0;
-            position: relative;
-            backdrop-filter: blur(6px);
-        }
-        .form-container::before {
-            content: "✦";
-            font-size: 1.8rem;
-            position: absolute;
-            left: 14px;
-            top: 10px;
-            color: var(--accent);
-        }
-        h1 {
-            font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
-            color: var(--text);
-            font-size: 2.1rem;
-            margin: 0 0 6px 0;
-            letter-spacing: 0.5px;
-        }
-        .form-container p {
-            color: var(--muted);
-            font-size: 1rem;
-            margin: 0 0 14px 0;
-        }
-        textarea {
-            width: 100%;
-            height: 110px;
-            padding: 12px 12px 12px 14px;
-            border: 1px solid var(--stroke);
-            border-radius: 12px;
-            font-size: 17px;
-            background: #0d1527;
-            color: var(--text);
-            resize: none;
-            transition: border-color 0.2s, box-shadow 0.2s;
-            margin-bottom: 12px;
-        }
-        textarea:focus {
-            border-color: var(--accent);
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(248, 197, 55, 0.18);
-        }
-        button {
-            width: 100%;
-            padding: 13px;
-            background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
-            color: #0b1224;
-            font-size: 1.05rem;
-            font-weight: 700;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: transform 0.15s ease, box-shadow 0.2s ease;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-        }
-        button:hover { transform: translateY(-1px) scale(1.01); }
-        button:active { transform: translateY(0); }
-        
-        .action-buttons {
-            display: flex;
-            gap: 10px;
-            width: 100%;
-            margin-top: 12px;
-        }
-        .action-buttons button {
-            flex: 1;
-        }
-        #back-button {
-            background: linear-gradient(90deg, #6b7280 0%, #4b5563 100%);
-        }
-
-        #graph-container {
-            width: 100%;
-            max-width: 1400px;
-            min-width: 340px;
-            height: 760px;
-            min-height: 420px;
-            border: 1px solid var(--stroke);
-            border-radius: 16px;
-            background: #ffffff;
-            position: relative;
-            margin: 12px 0 18px 0;
-            resize: both;
-            overflow: hidden;
-        }
-        #graph-loading {
-            position: absolute;
-            inset: 0;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            background: rgba(255, 255, 255, 0.82);
-            color: #0b1224;
-            font-weight: 700;
-            z-index: 30;
-            pointer-events: none;
-        }
-        .loading-spinner {
-            width: 16px;
-            height: 16px;
-            border-radius: 999px;
-            border: 2px solid rgba(15, 23, 42, 0.22);
-            border-top-color: #0f172a;
-            animation: constellationSpin 0.8s linear infinite;
-        }
-        @keyframes constellationSpin {
-            to { transform: rotate(360deg); }
-        }
-        #zoom-controls {
-            position: absolute;
-            right: 12px;
-            top: 12px;
-            display: flex;
-            gap: 8px;
-            z-index: 10;
-        }
-        #link-note, #suggestion-note {
-            position: absolute;
-            padding: 8px 10px;
-            background: #0f192f;
-            border: 1px solid var(--stroke);
-            border-radius: 8px;
-            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28);
-            color: var(--muted);
-            font-size: 13px;
-            max-width: 260px;
-            display: none;
-            z-index: 21;
-        }
-        #link-note { z-index: 20; pointer-events: none; }
-        .suggestion-btn {
-            display: inline-block;
-            margin-top: 6px;
-            margin-right: 6px;
-            padding: 6px 8px;
-            background: #0d1527;
-            border: 1px solid var(--stroke);
-            border-radius: 6px;
-            color: var(--text);
-            font-size: 12px;
-            cursor: pointer;
-        }
-        .zoom-btn {
-            width: 38px;
-            height: 38px;
-            border-radius: 10px;
-            border: 1px solid var(--stroke);
-            background: #0d1527;
-            color: #f8c537;
-            font-size: 18px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: transform 0.12s, box-shadow 0.2s, border-color 0.2s, color 0.2s;
-        }
-        .zoom-btn:hover {
-            transform: scale(1.05);
-            border-color: var(--accent);
-            color: #5eead4;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-        }
-        #panel-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 16px;
-            width: 100%;
-            max-width: 1200px;
-            margin-top: 6px;
-        }
-        .panel {
-            background: var(--panel);
-            border: 1px solid var(--stroke);
-            border-radius: 14px;
-            padding: 14px 12px 12px 12px;
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
-            transition: transform 0.2s ease, border-color 0.2s;
-        }
-        .panel:hover {
-            transform: translateY(-2px);
-            border-color: var(--accent);
-        }
-        h3 {
-            color: var(--text);
-            margin-top: 0;
-            margin-bottom: 10px;
-            letter-spacing: 0.3px;
-        }
-        ul { padding-left: 16px; margin: 0; color: var(--muted); }
-        .legend-item { margin: 5px 0; }
-        .legend-color {
-            width: 18px;
-            height: 18px;
-            display: inline-block;
-            margin-right: 6px;
-            border-radius: 4px;
-        }
-        .nodes path {
-            transition: filter 0.12s, transform 0.12s;
-            filter: drop-shadow(0 0 0px rgba(248, 197, 55, 0.0));
-        }
-        .nodes path:hover {
-            filter: drop-shadow(0 0 10px rgba(248, 197, 55, 0.7));
-            transform: scale(1.14);
-        }
-    </style>
 </head>
-<body>
+<body class="page-newc">
     <div class="form-container">
         <h1>Word Constellation</h1>
         <p>
@@ -253,13 +16,13 @@
         </p>
         <textarea id="words-input" placeholder="Ex: cat, dog, apple"></textarea>
         <button id="submit-button">Submit</button>        <div class="action-buttons">
-            <button id="save-button" style="display:none;">Save Constellation</button>
+            <button id="save-button">Save Constellation</button>
             <button id="back-button" onclick="window.location.href='confirmation.html'">Back to Account</button>
         </div>    </div>
-    <div id="health-banner" style="display:none; background:#fee2e2; color:#991b1b; border:1px solid #fecaca; padding:10px 12px; border-radius:10px; max-width:760px; width:100%; box-sizing:border-box; margin-bottom:10px;">
+    <div id="health-banner">
         Some services are unreachable. Saving or processing may fail.
     </div>
-    <div id="status-area" style="position:fixed; top:14px; right:14px; display:flex; flex-direction:column; gap:8px; z-index:2000;"></div>
+    <div id="status-area"></div>
     <div id="graph-container">
         <div id="graph-loading"><span class="loading-spinner"></span><span id="graph-loading-text">Loading constellation...</span></div>
         <div id="zoom-controls">
@@ -269,34 +32,34 @@
         <div id="link-note"></div>
         <div id="suggestion-note"></div>
     </div>
-    <div class="form-container" style="max-width: 760px; margin-top: 10px;">
-        <h3 style="margin: 0 0 10px 0;">Constellation Appearance</h3>
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:10px;">
-            <label style="color:var(--muted); font-size:14px; display:flex; flex-direction:column; gap:6px;">
+    <div class="form-container form-container--compact">
+        <h3 class="panel-title">Constellation Appearance</h3>
+        <div class="style-grid">
+            <label class="style-field">
                 Node Shape
-                <select id="style-shape" style="padding:8px; border-radius:10px; border:1px solid var(--stroke); background:#0d1527; color:var(--text);">
+                <select id="style-shape" class="style-input">
                     <option value="star">Star</option>
                     <option value="circle">Circle</option>
                     <option value="diamond">Diamond</option>
                     <option value="triangle">Triangle</option>
                 </select>
             </label>
-            <label style="color:var(--muted); font-size:14px; display:flex; flex-direction:column; gap:6px;">
+            <label class="style-field">
                 Root Color
-                <input id="style-root" type="color" value="#f8c537" style="height:36px; border:none; border-radius:10px; background:#0d1527;">
+                <input id="style-root" type="color" value="#f8c537" class="style-input">
             </label>
-            <label style="color:var(--muted); font-size:14px; display:flex; flex-direction:column; gap:6px;">
+            <label class="style-field">
                 Node Color
-                <input id="style-node" type="color" value="#5eead4" style="height:36px; border:none; border-radius:10px; background:#0d1527;">
+                <input id="style-node" type="color" value="#5eead4" class="style-input">
             </label>
-            <label style="color:var(--muted); font-size:14px; display:flex; flex-direction:column; gap:6px;">
+            <label class="style-field">
                 Link Color
-                <input id="style-link" type="color" value="#5eead4" style="height:36px; border:none; border-radius:10px; background:#0d1527;">
+                <input id="style-link" type="color" value="#5eead4" class="style-input">
             </label>
         </div>
-        <div class="action-buttons" style="margin-top:12px; gap:8px;">
+        <div class="action-buttons style-section-actions">
             <button id="apply-style">Apply Style</button>
-            <button id="save-style" style="background:linear-gradient(90deg,#22c55e 0%, #16a34a 100%);">Save Style</button>
+            <button id="save-style" type="button">Save Style</button>
         </div>
     </div>
     <div id="panel-container">
