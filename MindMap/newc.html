@@ -6,8 +6,11 @@
     <link rel="stylesheet" href="stylesheet/styles.css">
     <title>Word Constellation</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body class="page-newc">
+    <div class="star-field star-field-left"  id="star-field-left"  aria-hidden="true"></div>
+    <div class="star-field star-field-right" id="star-field-right" aria-hidden="true"></div>
     <div class="form-container">
         <h1>Word Constellation</h1>
         <p>
@@ -225,7 +228,9 @@
                 renderGraph(data);
                 updatePanels(data);
 
-                document.getElementById('save-button').style.display = isView ? 'none' : 'block';
+                const saveBtn = document.getElementById('save-button');
+                saveBtn.style.display = isView ? 'none' : 'block';
+                if (!isView) saveBtn.textContent = 'Save Changes';
             } catch (e) {
                 console.error('Failed to hydrate constellation:', e);
                 alert('Unable to load this constellation.');
@@ -264,7 +269,7 @@
                     
                     if (!profanityData.clean && profanityData.rejected_words.length > 0) {
                         const rejectedList = profanityData.rejected_words.join(', ');
-                        alert(`❌ You used inappropriate language:\n\n"${rejectedList}"\n\nPlease remove these words and try again.`);
+                        alert(`Inappropriate language detected: "${rejectedList}"\n\nPlease remove these words and try again.`);
                         submitButton.disabled = false;
                         submitButton.textContent = originalSubmitText;
                         setGraphLoading(false);
@@ -351,78 +356,100 @@
             }
         });
 
-        document.getElementById('save-button').addEventListener('click', async function() {
-            const user = JSON.parse(localStorage.getItem('user'));
-            if (!user || !user.id) {
-                alert('Please log in to save constellations.');
-                window.location.href = 'login.html';
+        document.getElementById('save-button').addEventListener('click', async function () {
+            const user  = JSON.parse(localStorage.getItem('user')  || 'null');
+            const token = localStorage.getItem('token');
+
+            if (!user || !user.id || !token) {
+                showStatus('Please log in to save.', 'error');
                 return;
             }
-
             if (!currentConstellationData) {
-                alert('No constellation to save. Please generate one first.');
+                showStatus('No constellation data to save.', 'error');
                 return;
             }
 
-            const existingName = currentConstellationData.name || '';
-            const name = prompt('Enter a name for this constellation:', existingName);
-            if (!name || name.trim() === '') {
+            // ── EDIT MODE: update the existing constellation ──────────────
+            if (editingId) {
+                try {
+                    const res = await fetch(`http://localhost:3002/update-constellation/${editingId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({
+                            name: currentConstellationData.name || 'Untitled',
+                            constellationData: currentConstellationData
+                        })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        showStatus('Changes saved!', 'success');
+                    } else {
+                        showStatus('Error saving: ' + (data.message || res.status), 'error');
+                    }
+                } catch (err) {
+                    showStatus('Network error. Please try again.', 'error');
+                }
                 return;
             }
+
+            // ── NEW CONSTELLATION: ask for a name then create ─────────────
+            const name = prompt('Name this constellation:', 'My Constellation');
+            if (!name) return;
 
             try {
-                currentStyle = readStyleFromControls();
-                currentConstellationData.style = { ...currentStyle };
-                currentConstellationData.name = name.trim();
-
-                let response;
-                if (editingId) {
-                    response = await fetch(`http://localhost:3002/update-constellation/${editingId}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            name: name.trim(),
-                            constellationData: currentConstellationData
-                        })
-                    });
+                const res = await fetch('http://localhost:3002/save-constellation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ user_id: user.id, name, constellationData: JSON.stringify(currentConstellationData) })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    editingId = data.constellationId;
+                    currentConstellationData.name = name;
+                    currentConstellationData.id   = editingId;
+                    document.getElementById('save-button').textContent = 'Save Changes';
+                    showStatus('Constellation saved!', 'success');
                 } else {
-                    response = await fetch('http://localhost:3002/save-constellation', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            userId: user.id,
-                            name: name.trim(),
-                            constellationData: currentConstellationData
-                        })
-                    });
+                    showStatus('Error: ' + (data.message || res.status), 'error');
                 }
-
-                const data = await response.json();
-                if (response.ok) {
-                    showStatus(data.message || 'Saved.', 'success');
-                    if (!editingId && data.constellationId) {
-                        editingId = data.constellationId;
-                        currentConstellationData.id = data.constellationId;
-                    }
-                } else {
-                    showStatus(data.message || 'Failed to save constellation.', 'error');
-                }
-            } catch (error) {
-                console.error('Error saving constellation:', error);
-                showStatus('Error saving constellation.', 'error');
+            } catch (err) {
+                showStatus('Network error. Please try again.', 'error');
             }
         });
 
+        
+
+        function deleteNode(nodeId) {
+            if (!currentConstellationData) return;
+            currentConstellationData.nodes = (currentConstellationData.nodes || []).filter(n => n.id !== nodeId);
+            currentConstellationData.links = (currentConstellationData.links || []).filter(l => {
+                const srcId = typeof l.source === 'object' ? (l.source.id ?? l.source) : l.source;
+                const tgtId = typeof l.target === 'object' ? (l.target.id ?? l.target) : l.target;
+                return srcId !== nodeId && tgtId !== nodeId;
+            });
+            document.getElementById('suggestion-note').style.display = 'none';
+            renderGraph(currentConstellationData);
+            updatePanels(currentConstellationData);
+        }
+
         async function saveStyleSilently() {
             if (!editingId || !currentConstellationData) return false;
+            
             const user = JSON.parse(localStorage.getItem('user'));
-            if (!user || !user.id) return false;
+            const token = localStorage.getItem('token'); // <-- Grab the token
+            
+            // Check if both user and token exist
+            if (!user || !user.id || !token) return false;
+            
             const nameToUse = currentConstellationData.name || 'Untitled Constellation';
 
             try {
                 const response = await fetch(`http://localhost:3002/update-constellation/${editingId}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` // <-- Attach the token
+                    },
                     body: JSON.stringify({
                         name: nameToUse,
                         constellationData: { ...currentConstellationData, style: { ...currentStyle }, name: nameToUse }
@@ -768,24 +795,77 @@
                     const suggRaw = suggestionsMap[nodeData.id] || [];
                     const sugg = suggRaw.filter(w => !existing.has(w));
 
-                    if (!sugg.length) {
-                        suggestionNote.innerHTML = `<b>${nodeData.id}</b><br>No suggestions available.`;
-                    } else {
-                        const title = `<b>${nodeData.id}</b><br>Try one of these:`;
-                        const buttons = sugg.slice(0, 3).map(w => `<button class="suggestion-btn" data-word="${w}">${w}</button>`).join('');
-                        suggestionNote.innerHTML = `${title}<br>${buttons}`;
-                    }
+                    const buildHtml = (meaningHtml = '') => {
+                        let html = `<b>${nodeData.id}</b><br>`;
+                        if (sugg.length) {
+                            html += `Try one of these:<br>`;
+                            html += sugg.slice(0, 3).map(w => `<button class="suggestion-btn" data-word="${w}">${w}</button>`).join('');
+                        } else {
+                            html += `No suggestions available.`;
+                        }
+                        html += `<button class="suggestion-btn meaning-btn" data-meaning="${nodeData.id}">Meaning</button>`;
+                        html += `<button class="suggestion-btn delete-node-btn" data-delete="${nodeData.id}">Delete node</button>`;
+                        if (meaningHtml) html += `<div class="meaning-text">${meaningHtml}</div>`;
+                        return html;
+                    };
 
+                    suggestionNote.innerHTML = buildHtml();
                     suggestionNote.style.left = `${x}px`;
                     suggestionNote.style.top = `${y}px`;
                     suggestionNote.style.display = 'block';
 
-                    suggestionNote.onclick = (e) => {
+                    suggestionNote.onclick = async (e) => {
                         const btn = e.target.closest('.suggestion-btn');
                         if (!btn) return;
+
+                        const deleteId = btn.getAttribute('data-delete');
+                        if (deleteId) { deleteNode(deleteId); return; }
+
+                        const meaningWord = btn.getAttribute('data-meaning');
+                        if (meaningWord) {
+                            btn.textContent = '...';
+                            btn.disabled = true;
+                            let def = null, pos = '';
+                            try {
+                                // Primary: WordNet via Flask (covers all constellation words)
+                                const wnRes = await fetch('http://127.0.0.1:5000/define', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ word: meaningWord })
+                                });
+                                if (wnRes.ok) {
+                                    const wnData = await wnRes.json();
+                                    def = wnData.definition;
+                                    pos = wnData.partOfSpeech || '';
+                                }
+                            } catch (_) {}
+
+                            if (!def) {
+                                try {
+                                    // Fallback: public Dictionary API (good for common words)
+                                    const dictRes = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(meaningWord)}`);
+                                    if (dictRes.ok) {
+                                        const dictData = await dictRes.json();
+                                        def = dictData[0]?.meanings[0]?.definitions[0]?.definition || null;
+                                        pos = dictData[0]?.meanings[0]?.partOfSpeech || '';
+                                    }
+                                } catch (_) {}
+                            }
+
+                            if (def) {
+                                const short = def.length > 140 ? def.slice(0, 137) + '…' : def;
+                                suggestionNote.innerHTML = buildHtml(`<i>${pos ? pos + ': ' : ''}${short}</i>`);
+                            } else {
+                                suggestionNote.innerHTML = buildHtml(`<i>No definition found.</i>`);
+                            }
+                            return;
+                        }
+
                         const newWord = btn.getAttribute('data-word');
-                        addSuggestionWord(nodeData.id, newWord);
-                        suggestionNote.style.display = 'none';
+                        if (newWord) {
+                            addSuggestionWord(nodeData.id, newWord);
+                            suggestionNote.style.display = 'none';
+                        }
                     };
                 }
 
@@ -916,6 +996,51 @@
             }
         }
 
+    </script>
+
+    <script>
+        (function () {
+            const GLYPHS = ['✦', '✧', '✩', '⋆', '˚', '*', '°', '·', '+'];
+            const COLORS = ['#f8c537', '#5eead4', '#ffffff', '#c4b5fd', '#fbbf24', '#a5f3fc'];
+
+            function spawnStars(field, count) {
+                if (!field) return;
+                const fieldW = 180;
+                for (let i = 0; i < count; i++) {
+                    const el = document.createElement('span');
+                    el.className = 'falling-star';
+                    el.setAttribute('aria-hidden', 'true');
+
+                    const size     = 8   + Math.random() * 14;
+                    const left     = Math.random() * fieldW;
+                    const dur      = 3.5 + Math.random() * 6;
+                    const delay    = -(Math.random() * dur);
+                    const driftX   = (Math.random() - 0.5) * 40;
+                    const spinDeg  = (Math.random() - 0.5) * 360;
+                    const fallDist = window.innerHeight * (0.4 + Math.random() * 0.5);
+                    const color    = COLORS[Math.floor(Math.random() * COLORS.length)];
+
+                    el.textContent = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+
+                    el.style.left              = left + 'px';
+                    el.style.top               = (Math.random() * -60) + 'px';
+                    el.style.fontSize          = size + 'px';
+                    el.style.color             = color;
+                    el.style.textShadow        = `0 0 8px ${color}cc, 0 0 18px ${color}55`;
+                    el.style.animationDuration = dur + 's';
+                    el.style.animationDelay    = delay + 's';
+
+                    el.style.setProperty('--drift-x',   driftX   + 'px');
+                    el.style.setProperty('--spin-deg',  spinDeg  + 'deg');
+                    el.style.setProperty('--fall-dist', fallDist + 'px');
+
+                    field.appendChild(el);
+                }
+            }
+
+            spawnStars(document.getElementById('star-field-left'),  20);
+            spawnStars(document.getElementById('star-field-right'), 20);
+        })();
     </script>
 </body>
 </html>

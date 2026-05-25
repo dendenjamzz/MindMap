@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin — Reports</title>
+    <link rel="stylesheet" href="stylesheet/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+            background: radial-gradient(circle at 20% 20%, rgba(94,234,212,.06), transparent 26%),
+                        radial-gradient(circle at 80% 10%, rgba(248,197,55,.08), transparent 30%),
+                        linear-gradient(140deg, #050915 0%, #0b1224 50%, #0a152e 100%);
+            color: #e8eefc;
+            padding: 32px 24px;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1100px;
+            margin: 0 auto 28px;
+        }
+
+        header h1 { margin: 0; font-size: 1.8rem; color: #f8c537; }
+
+        .back-btn {
+            background: transparent;
+            border: 1px solid #243249;
+            color: #9fb2d7;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            transition: border-color .15s, color .15s;
+        }
+        .back-btn:hover { border-color: #5eead4; color: #5eead4; }
+
+        .filters {
+            max-width: 1100px;
+            margin: 0 auto 18px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid #243249;
+            background: transparent;
+            color: #9fb2d7;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .filter-btn.active, .filter-btn:hover { border-color: #f8c537; color: #f8c537; background: rgba(248,197,55,.08); }
+
+        #report-count {
+            max-width: 1100px;
+            margin: 0 auto 12px;
+            color: #9fb2d7;
+            font-size: 14px;
+        }
+
+        table {
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto;
+            border-collapse: collapse;
+            background: #0f172a;
+            border: 1px solid #243249;
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        thead tr { background: #0d1527; }
+        th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 700;
+            color: #9fb2d7;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            border-bottom: 1px solid #243249;
+        }
+
+        td {
+            padding: 14px 16px;
+            font-size: 14px;
+            border-bottom: 1px solid #1a2640;
+            vertical-align: top;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(94,234,212,.03); }
+
+        .content-cell { max-width: 380px; line-height: 1.5; color: #cdd5e8; }
+
+        .user-cell { color: #e8eefc; }
+        .user-cell small { display: block; color: #9fb2d7; font-size: 12px; margin-top: 2px; }
+
+        .date-cell { color: #9fb2d7; font-size: 13px; white-space: nowrap; }
+
+        /* Status badge */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: capitalize;
+        }
+        .badge-pending  { background: rgba(251,191, 36,.15); color: #fbbf24; border: 1px solid rgba(251,191,36,.35); }
+        .badge-reviewed { background: rgba( 94,234,212,.15); color: #5eead4; border: 1px solid rgba(94,234,212,.35); }
+        .badge-closed   { background: rgba(107,114,128,.15); color: #9ca3af; border: 1px solid rgba(107,114,128,.35); }
+
+        /* Status selector */
+        .status-select {
+            margin-top: 8px;
+            padding: 5px 8px;
+            border-radius: 8px;
+            border: 1px solid #243249;
+            background: #0d1527;
+            color: #e8eefc;
+            font-family: inherit;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .status-select:focus { outline: none; border-color: #5eead4; }
+
+        .save-btn {
+            margin-top: 6px;
+            padding: 5px 12px;
+            border-radius: 7px;
+            border: 1px solid #5eead4;
+            background: rgba(94,234,212,.08);
+            color: #5eead4;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .15s;
+            display: none;
+        }
+        .save-btn:hover { background: rgba(94,234,212,.18); }
+        .save-btn.visible { display: inline-block; }
+
+        .msg { color: #34d399; font-size: 12px; margin-top: 4px; display: none; }
+
+        #error-banner {
+            max-width: 1100px;
+            margin: 0 auto 18px;
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+            border-radius: 10px;
+            padding: 12px 16px;
+            display: none;
+        }
+
+        #loading { max-width: 1100px; margin: 40px auto; text-align: center; color: #9fb2d7; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Report Management</h1>
+    <button class="back-btn" onclick="window.location.href='confirmation.html'">← Back to Dashboard</button>
+</header>
+
+<div id="error-banner"></div>
+
+<div class="filters">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="pending">Pending</button>
+    <button class="filter-btn" data-filter="reviewed">Reviewed</button>
+    <button class="filter-btn" data-filter="closed">Closed</button>
+</div>
+
+<div id="report-count"></div>
+<div id="loading">Loading reports…</div>
+
+<table id="report-table" style="display:none;">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>User</th>
+            <th>Report</th>
+            <th>Status</th>
+            <th>Date</th>
+        </tr>
+    </thead>
+    <tbody id="report-tbody"></tbody>
+</table>
+
+<script>
+    const token  = localStorage.getItem('token');
+    const user   = JSON.parse(localStorage.getItem('user') || 'null');
+
+    if (!token || !user) {
+        window.location.href = 'login.html';
+    }
+
+    let allReports   = [];
+    let activeFilter = 'all';
+
+    async function loadReports() {
+        try {
+            const res = await fetch('http://localhost:3002/admin/reports', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.status === 403) {
+                showError('Access denied. You are not an admin.');
+                document.getElementById('loading').style.display = 'none';
+                return;
+            }
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            allReports = await res.json();
+            document.getElementById('loading').style.display = 'none';
+            renderTable(allReports);
+        } catch (e) {
+            showError('Could not load reports: ' + e.message);
+            document.getElementById('loading').style.display = 'none';
+        }
+    }
+
+    function renderTable(reports) {
+        const filtered = activeFilter === 'all'
+            ? reports
+            : reports.filter(r => r.status === activeFilter);
+
+        document.getElementById('report-count').textContent =
+            `Showing ${filtered.length} of ${reports.length} report${reports.length !== 1 ? 's' : ''}`;
+
+        const tbody = document.getElementById('report-tbody');
+        tbody.innerHTML = '';
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#9fb2d7;padding:32px">No reports found.</td></tr>`;
+            document.getElementById('report-table').style.display = 'table';
+            return;
+        }
+
+        filtered.forEach(r => {
+            const date = new Date(r.created_at).toLocaleString('en-GB', {
+                day: '2-digit', month: 'short', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+
+            const tr = document.createElement('tr');
+            tr.dataset.id = r.id;
+            tr.innerHTML = `
+                <td style="color:#9fb2d7;font-size:13px">#${r.id}</td>
+                <td class="user-cell">
+                    ${escHtml(r.username)}
+                    <small>${escHtml(r.email)}</small>
+                </td>
+                <td class="content-cell">${escHtml(r.report_content)}</td>
+                <td>
+                    <span class="badge badge-${r.status}" id="badge-${r.id}">${r.status}</span><br>
+                    <select class="status-select" id="sel-${r.id}" onchange="onSelectChange(${r.id})">
+                        <option value="pending"  ${r.status==='pending'  ?'selected':''}>Pending</option>
+                        <option value="reviewed" ${r.status==='reviewed' ?'selected':''}>Reviewed</option>
+                        <option value="closed"   ${r.status==='closed'   ?'selected':''}>Closed</option>
+                    </select>
+                    <button class="save-btn" id="save-${r.id}" onclick="saveStatus(${r.id})">Save</button>
+                    <div class="msg" id="msg-${r.id}">Saved</div>
+                </td>
+                <td class="date-cell">${date}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('report-table').style.display = 'table';
+    }
+
+    function onSelectChange(id) {
+        const sel   = document.getElementById('sel-' + id);
+        const btn   = document.getElementById('save-' + id);
+        const report = allReports.find(r => r.id === id);
+        btn.classList.toggle('visible', sel.value !== report.status);
+    }
+
+    async function saveStatus(id) {
+        const sel    = document.getElementById('sel-' + id);
+        const btn    = document.getElementById('save-' + id);
+        const msg    = document.getElementById('msg-' + id);
+        const badge  = document.getElementById('badge-' + id);
+        const status = sel.value;
+
+        btn.textContent = '…';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(`http://localhost:3002/admin/report/${id}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ status })
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+
+            // Update local data
+            const report = allReports.find(r => r.id === id);
+            if (report) report.status = status;
+
+            badge.className = `badge badge-${status}`;
+            badge.textContent = status;
+            btn.classList.remove('visible');
+            msg.style.display = 'block';
+            setTimeout(() => { msg.style.display = 'none'; }, 2000);
+        } catch (e) {
+            alert('Failed to update: ' + e.message);
+        } finally {
+            btn.textContent = 'Save';
+            btn.disabled = false;
+        }
+    }
+
+    function showError(msg) {
+        const el = document.getElementById('error-banner');
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+
+    function escHtml(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // Filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activeFilter = btn.dataset.filter;
+            renderTable(allReports);
+        });
+    });
+
+    loadReports();
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+    "Artificial Intelligence & ML": ["artificial", "intelligence", "machine", "learning", "neural", "algorithm", "ai", "automation", "robot", "cognitive", "llm", "generative"],
+    "Climate & Sustainability": ["climate", "environment", "sustainable", "green", "renewable", "carbon", "ecology", "conservation", "emission", "biodiversity", "net-zero"],
+    "Digital Transformation": ["digital", "transformation", "cloud", "software", "platform", "online", "virtual", "cyber", "internet", "compute", "saas"],
+    "Blockchain & Web3": ["blockchain", "crypto", "bitcoin", "decentralized", "token", "ledger", "cryptocurrency", "web3", "nft", "smart contract", "ethereum"],
+    "Remote Work & Collaboration": ["remote", "hybrid", "collaboration", "telecommute", "virtual", "workspace", "distributed", "nomad", "async"],
+    "Biotechnology & Genomics": ["biotech", "genetic", "genome", "dna", "molecular", "cellular", "bio-engineering", "biotechnology", "crispr", "synthetic biology"],
+    "Renewable Energy": ["solar", "wind", "renewable", "clean energy", "photovoltaic", "turbine", "sustainable power", "geothermal", "hydro", "battery"],
+    "E-commerce & Digital Markets": ["e-commerce", "online shopping", "marketplace", "digital payment", "retail technology", "checkout", "commerce", "fintech"],
+    "Data Science & Analytics": ["data", "analytics", "big data", "statistics", "visualization", "insight", "metrics", "prediction", "modeling", "dashboard"],
+    "Cybersecurity": ["security", "cyber", "encryption", "protection", "threat", "vulnerability", "firewall", "breach", "hacker", "privacy", "malware"],
+    "Virtual & Augmented Reality": ["vr", "ar", "virtual reality", "augmented reality", "metaverse", "headset", "immersion", "spatial computing", "3d"],
+    "Space Economy & Tech": ["space", "satellite", "orbit", "rocket", "exploration", "aerospace", "martian", "lunar", "commercial space"],
+    "HealthTech & Telemedicine": ["healthtech", "telemedicine", "digital health", "wearable", "medtech", "remote patient", "ehealth", "fitness tracker"]
+}

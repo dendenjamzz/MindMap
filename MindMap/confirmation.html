@@ -10,13 +10,23 @@
 <body class="page-confirmation">
     <div class="confirmation-page">
         <div class="side-window" id="side-window">
-            <div class="account-icon" id="account-icon" onclick="changeProfileImage()"></div>
-            <div class="account-details">
-                <p id="user-name">Username</p>
-                <p id="user-email">Email</p>
+            <div class="profile-header">
+                <div class="account-icon" id="account-icon" ></div>
+                <div class="account-details">
+                    <p id="user-name">Username</p>
+                    <p id="user-email">Email</p>
+                </div>
             </div>
             <button class="button" id="toggle-theme" onclick="toggleTheme()">Switch to Dark Mode</button>
             <button class="button" id="get-reports" onclick="showReportInput()">Submit a Report</button>
+            <button class="button" id="admin-btn" onclick="window.location.href='admin.html'">Manage Reports</button>
+
+            <div id="report-container" class="report-container">
+                <h3>Write Your Report</h3>
+                <textarea id="report-input" class="report-input" placeholder="Write your report here..."></textarea>
+                <button class="button" onclick="submitReport()">Submit Report</button>
+                <button class="button" onclick="cancelReport()">Cancel</button>
+            </div>
         </div>
 
         <div class="main-content" id="main-content">
@@ -37,22 +47,14 @@
         </div>
     </div>
 
-    <div id="report-container" class="report-container">
-        <h3>Write Your Report</h3>
-        <textarea id="report-input" class="report-input" placeholder="Write your report here..."></textarea>
-        <button class="button" onclick="submitReport()">Submit Report</button>
-        <button class="button" onclick="cancelReport()">Cancel</button>
-    </div>
-
     <button class="back-login" onclick="window.location.href='login.html'">Back to Login</button>
 
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
+                
             let user = JSON.parse(localStorage.getItem('user'));
             const pendingEmail = localStorage.getItem('pendingEmail');
 
-            console.log('User from localStorage:', user);
-            console.log('Pending email:', pendingEmail);
 
             if (!user && pendingEmail) {
                 document.getElementById('user-name').textContent = '';
@@ -78,8 +80,15 @@
                 document.getElementById('user-name').textContent = user.username || user.name || '';
                 document.getElementById('user-email').textContent = user.email;
 
-                const profileImage = user.profileImage || 'default.png';
-                document.getElementById('account-icon').style.backgroundImage = `url('${profileImage}')`;
+                // Show admin button — server enforces access, this just controls visibility
+                fetch('http://localhost:3002/admin/check', {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                }).then(r => {
+                    if (r.ok) document.getElementById('admin-btn').style.display = 'block';
+                }).catch(() => {});
+
+                //const profileImage = user.profileImage || 'default.png';
+                //document.getElementById('account-icon').style.backgroundImage = `url('${profileImage}')`;
             }
 
             if (pendingEmail && !user) {
@@ -115,307 +124,396 @@
             }
 
             if (user && user.id) {
-                console.log('Loading constellations for user ID:', user.id);
                 loadSavedConstellations(user.id);
             } else {
-                console.log('No user ID available to load constellations');
                 document.getElementById('constellations-loading').textContent = 'Please log in to view your constellations.';
             }
         });
 
-        async function loadSavedConstellations(userId) {
-            const container = document.getElementById('saved-constellations');
-            const loadingEl = document.getElementById('constellations-loading');
-            const listEl = document.getElementById('constellation-list');
-            const setLoading = (isLoading, message) => {
-                loadingEl.textContent = message;
-                loadingEl.style.display = 'inline-flex';
-                loadingEl.classList.toggle('loading', isLoading);
-            };
-
-            setLoading(true, 'Loading your constellations...');
+        async function loadSavedConstellations() {
+            const user = JSON.parse(localStorage.getItem('user'));
+            const token = localStorage.getItem('token');
             
+            const userId = user.id;
+
+            const listEl = document.getElementById('constellation-list');
+            const countEl = document.getElementById('constellations-count');
+
+            if (!listEl) return;
+
+            if (!user || !token) {
+                listEl.innerHTML = '<p>Please log in again.</p>';
+                return;
+            }
+
             try {
-                const response = await fetch(`http://localhost:3002/get-constellations/${userId}`);
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                const constellations = await response.json();
-                
-                console.log('Loaded constellations:', constellations);
-                
-                if (constellations.length === 0) {
-                    setLoading(false, 'No saved constellations yet. Create your first one!');
+                const response = await fetch(`http://localhost:3002/constellations/${userId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('Server error');
+
+                const constellation = await response.json();
+                const loadingEl = document.getElementById('constellations-loading');
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (countEl) countEl.textContent = constellation.length;
+
+                listEl.innerHTML = '';
+
+                if (constellation.length === 0) {
+                    listEl.innerHTML = '<p>No saved constellations.</p>';
                     return;
                 }
-                
-                loadingEl.style.display = 'none';
-                loadingEl.classList.remove('loading');
-                listEl.innerHTML = '';
-                
-                constellations.forEach(constellation => {
+
+                window.constellationMap = window.constellationMap || {};
+                constellation.forEach(c => {
                     const item = document.createElement('div');
                     item.className = 'constellation-item';
 
-                    const preview = document.createElement('div');
-                    preview.className = 'constellation-preview';
+                    // Folosim numele coloanelor din baza de date
+                    const cId = c.constellation_id;
+                    window.constellationMap[cId] = c;
 
-                    try {
-                        const parsed = typeof constellation.constellation_data === 'string'
-                            ? JSON.parse(constellation.constellation_data)
-                            : constellation.constellation_data;
-                        if (!parsed || typeof parsed !== 'object') throw new Error('Invalid constellation data');
-                        const svg = createMiniConstellation(parsed, 240);
-                        preview.appendChild(svg);
-                    } catch (e) {
-                        console.error('Error creating preview:', e);
-                        preview.innerHTML = '<div style="color: var(--muted); font-size: 12px;">Preview unavailable (invalid data)</div>';
-                    }
-
-                    const info = document.createElement('div');
-                    info.className = 'constellation-info';
-
-                    const nameDiv = document.createElement('div');
-                    nameDiv.className = 'constellation-name';
-                    nameDiv.textContent = constellation.name || 'Untitled Constellation';
-                    nameDiv.title = constellation.name || 'Untitled Constellation';
-
-                    const dateDiv = document.createElement('div');
-                    dateDiv.className = 'constellation-date';
-                    const date = new Date(constellation.created_at);
-                    dateDiv.textContent = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-
-                    const actions = document.createElement('div');
-                    actions.style.display = 'flex';
-                    actions.style.flexDirection = 'column';
-                    actions.style.gap = '8px';
-
-                    const editBtn = document.createElement('button');
-                    editBtn.className = 'button';
-                    editBtn.textContent = 'Edit';
-                    editBtn.style.padding = '8px 10px';
-                    editBtn.style.fontSize = '13px';
-                    editBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        viewConstellation(constellation);
-                    };
-
-                    const shareBtn = document.createElement('button');
-                    shareBtn.className = 'button';
-                    shareBtn.textContent = 'Send Link';
-                    shareBtn.style.padding = '8px 10px';
-                    shareBtn.style.fontSize = '13px';
-                    shareBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        shareConstellationLink(constellation);
-                    };
-
-                    const downloadImgBtn = document.createElement('button');
-                    downloadImgBtn.className = 'button';
-                    downloadImgBtn.textContent = 'Download Image';
-                    downloadImgBtn.style.padding = '8px 10px';
-                    downloadImgBtn.style.fontSize = '13px';
-                    downloadImgBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        downloadConstellationImage(constellation, preview);
-                    };
-
-                    const downloadReportBtn = document.createElement('button');
-                    downloadReportBtn.className = 'button';
-                    downloadReportBtn.textContent = 'Download Report';
-                    downloadReportBtn.style.padding = '8px 10px';
-                    downloadReportBtn.style.fontSize = '13px';
-                    downloadReportBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        downloadConstellationReport(constellation);
-                    };
-
-                    actions.appendChild(editBtn);
-                    actions.appendChild(shareBtn);
-                    actions.appendChild(downloadImgBtn);
-                    actions.appendChild(downloadReportBtn);
-
-                    info.appendChild(nameDiv);
-                    info.appendChild(dateDiv);
-                    info.appendChild(actions);
-
-                    item.appendChild(preview);
-                    item.appendChild(info);
-
+                    item.innerHTML = `
+                        <div class="constellation-preview" id="preview-${cId}"></div>
+                        <div class="constellation-info">
+                            <div class="constellation-name">${c.name || 'Unnamed'}</div>
+                            <div class="constellation-actions">
+                                <button class="card-action-btn btn-edit"   onclick="viewConstellation(${cId})">Edit</button>
+                                <button class="card-action-btn btn-delete" onclick="deleteConstellation(${cId})">Delete</button>
+                                <button class="card-action-btn btn-png"    onclick="downloadConstellationImage(window.constellationMap[${cId}])">PNG</button>
+                                <button class="card-action-btn btn-report" onclick="downloadConstellationReport(window.constellationMap[${cId}])">CSV Report</button>
+                            </div>
+                        </div>
+                    `;
                     listEl.appendChild(item);
+
+                    if (c.constellation_data) {
+                        try {
+                            const data = typeof c.constellation_data === 'string'
+                                ? JSON.parse(c.constellation_data)
+                                : c.constellation_data;
+                            const svgEl = createMiniConstellation(data, 250);
+                            document.getElementById(`preview-${cId}`).appendChild(svgEl);
+                        } catch (e) {
+                            console.error('Preview render error:', e);
+                        }
+                    }
                 });
-                
-                document.getElementById('constellations-count').textContent = constellations.length;
+
             } catch (error) {
                 console.error('Error loading constellations:', error);
-                setLoading(false, 'Error loading constellations. Please refresh the page.');
+                listEl.innerHTML = '<p style="color:red;">Error loading constellations.</p>';
             }
         }
+
+
+        function renderMiniPreview(containerId, rawData) {
+            try {
+                const data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+                if (!data || !data.nodes) return;
+
+                const svg = d3.select(`#${containerId}`)
+                    .append("svg")
+                    .attr("width", "100%")
+                    .attr("height", "100%");
+
+                const width = document.getElementById(containerId).offsetWidth || 250;
+                const height = 150;
+
+                const simulation = d3.forceSimulation(data.nodes)
+                    .force("link", d3.forceLink(data.links).id(d => d.id).distance(20))
+                    .force("charge", d3.forceManyBody().strength(-10))
+                    .force("center", d3.forceCenter(width / 2, height / 2))
+                    .stop();
+
+                for (let i = 0; i < 50; ++i) simulation.tick();
+
+                svg.append("g").selectAll("line").data(data.links).enter().append("line")
+                    .attr("stroke", "#5eead4").attr("stroke-opacity", 0.3)
+                    .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+
+                svg.append("g").selectAll("circle").data(data.nodes).enter().append("circle")
+                    .attr("r", 2).attr("fill", "#f8c537")
+                    .attr("cx", d => d.x).attr("cy", d => d.y);
+            } catch (e) { console.error("D3 Mini error:", e); }
+        }
+                
+
+
+        function renderMiniPreview(containerId, rawData) {
+            try {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+
+                // Parsăm datele dacă sunt string (LONGTEXT în MySQL)
+                const data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+                if (!data || !data.nodes) return;
+
+                const width = container.offsetWidth || 250;
+                const height = 150;
+
+                // Curățăm containerul înainte de desenare
+                d3.select(`#${containerId}`).select("svg").remove();
+
+                const svg = d3.select(`#${containerId}`)
+                    .append("svg")
+                    .attr("width", "100%")
+                    .attr("height", height)
+                    .attr("viewBox", `0 0 ${width} ${height}`);
+
+                const simulation = d3.forceSimulation(data.nodes)
+                    .force("link", d3.forceLink(data.links).id(d => d.id).distance(25))
+                    .force("charge", d3.forceManyBody().strength(-15))
+                    .force("center", d3.forceCenter(width / 2, height / 2))
+                    .stop(); // Oprim simularea automată pentru a randa rapid
+
+                // Rulăm simularea manual câteva cadre pentru a poziționa nodurile
+                for (let i = 0; i < 60; ++i) simulation.tick();
+
+                // Desenăm liniile
+                svg.append("g")
+                    .selectAll("line")
+                    .data(data.links)
+                    .enter().append("line")
+                    .attr("stroke", "#5eead4")
+                    .attr("stroke-opacity", 0.4)
+                    .attr("stroke-width", 1)
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                // Desenăm nodurile (stelele)
+                svg.append("g")
+                    .selectAll("circle")
+                    .data(data.nodes)
+                    .enter().append("circle")
+                    .attr("r", 2.5)
+                    .attr("fill", "#f8c537")
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y);
+
+            } catch (err) {
+                console.error("Eroare D3 Preview:", err);
+            }
+        }
+
+
+        function renderMiniGraph(containerId, rawData) {
+            try {
+                const data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+                if (!data || !data.nodes) return;
+
+                const container = document.getElementById(containerId);
+                const width = container.offsetWidth || 250;
+                const height = 150;
+
+                const svg = d3.select(`#${containerId}`)
+                    .append("svg")
+                    .attr("width", "100%")
+                    .attr("height", height);
+
+                const simulation = d3.forceSimulation(data.nodes)
+                    .force("link", d3.forceLink(data.links).id(d => d.id).distance(20))
+                    .force("charge", d3.forceManyBody().strength(-15))
+                    .force("center", d3.forceCenter(width / 2, height / 2));
+
+                const link = svg.append("g").selectAll("line")
+                    .data(data.links).enter().append("line")
+                    .attr("stroke", "#5eead4").attr("stroke-opacity", 0.4);
+
+                const node = svg.append("g").selectAll("circle")
+                    .data(data.nodes).enter().append("circle")
+                    .attr("r", 2).attr("fill", "#f8c537");
+
+                simulation.on("tick", () => {
+                    link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+                        .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+                    node.attr("cx", d => d.x).attr("cy", d => d.y);
+                });
+            } catch (e) { console.error("D3 Error:", e); }
+        }       
+
+        function _shapeNodePath(shape, cx, cy, r) {
+            switch (shape) {
+                case 'star': {
+                    const ir = r * 0.42;
+                    let d = '';
+                    for (let i = 0; i < 10; i++) {
+                        const rad = i % 2 === 0 ? r : ir;
+                        const a = (i * Math.PI / 5) - Math.PI / 2;
+                        d += (i === 0 ? 'M' : 'L') + (cx + rad * Math.cos(a)).toFixed(2) + ',' + (cy + rad * Math.sin(a)).toFixed(2);
+                    }
+                    return d + 'Z';
+                }
+                case 'diamond':
+                    return `M${cx.toFixed(2)},${(cy-r).toFixed(2)} L${(cx+r*0.65).toFixed(2)},${cy.toFixed(2)} L${cx.toFixed(2)},${(cy+r).toFixed(2)} L${(cx-r*0.65).toFixed(2)},${cy.toFixed(2)}Z`;
+                case 'triangle': {
+                    const h = r * 0.866;
+                    return `M${cx.toFixed(2)},${(cy-r).toFixed(2)} L${(cx+h).toFixed(2)},${(cy+r*0.5).toFixed(2)} L${(cx-h).toFixed(2)},${(cy+r*0.5).toFixed(2)}Z`;
+                }
+                default:
+                    return `M${(cx+r).toFixed(2)},${cy.toFixed(2)} A${r},${r} 0 1,1 ${(cx-r).toFixed(2)},${cy.toFixed(2)} A${r},${r} 0 1,1 ${(cx+r).toFixed(2)},${cy.toFixed(2)}Z`;
+            }
+        }
+
+        function _brighten(hex) {
+            const n = parseInt((hex || '#888888').replace('#',''), 16);
+            const r = Math.min(255, (n >> 16) + 60);
+            const g = Math.min(255, ((n >> 8) & 0xff) + 60);
+            const b = Math.min(255, (n & 0xff) + 60);
+            return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+        }
+
         function createMiniConstellation(data, size = 200) {
+            const isExport = size > 400;
+
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
             svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
-            svg.setAttribute('width', `${size}`);
-            svg.setAttribute('height', `${size}`);
-            svg.style.background = '#ffffff';
+            svg.setAttribute('width', size);
+            svg.setAttribute('height', size);
+            svg.style.width = '100%';
+            svg.style.height = '100%';
+            svg.style.display = 'block';
 
-            const nodes = data.nodes || [];
-            const linksRaw = data.links || [];
+            // Background rect (CSS background is lost when serializing to image)
+            const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            bg.setAttribute('width', size);
+            bg.setAttribute('height', size);
+            bg.setAttribute('fill', '#0a0f1c');
+            svg.appendChild(bg);
 
-            if (!nodes.length) return svg;
+            if (!data || !data.nodes || data.nodes.length === 0) return svg;
 
-            const nodeMap = new Map(nodes.map(n => [n.id, n]));
-            const links = linksRaw.filter(l => nodeMap.has(l.source?.id ?? l.source) && nodeMap.has(l.target?.id ?? l.target));
+            const style = data.style || {};
+            const rootColor = style.rootColor || '#f8c537';
+            const nodeColor = style.nodeColor || '#5eead4';
+            const linkColor = style.linkColor || '#5eead4';
+            const shape = style.shape || 'star';
 
-            const hasPositions = nodes.length && nodes.every(n => Number.isFinite(n.x) && Number.isFinite(n.y));
-            if (!hasPositions && nodes.length) {
-                const radius = size * 0.28;
-                const cx = size / 2;
-                const cy = size / 2;
+            const nodeR     = Math.max(3, size / (isExport ? 70 : 55));
+            const fontSize  = isExport ? Math.max(12, size / 75) : 0;
+            const linkW     = isExport ? 2 : 1;
+
+            // Clone nodes so we don't mutate saved data
+            const nodes = data.nodes.map(n => ({ ...n }));
+            const links = data.links || [];
+
+            // Assign positions if missing
+            if (!nodes.every(n => isFinite(n.x) && isFinite(n.y))) {
+                const cx = size / 2, cy = size / 2, rad = size * 0.35;
                 nodes.forEach((n, i) => {
-                    const angle = (i / nodes.length) * 2 * Math.PI;
-                    n.x = cx + Math.cos(angle) * radius;
-                    n.y = cy + Math.sin(angle) * radius;
+                    const a = (i / nodes.length) * 2 * Math.PI;
+                    n.x = cx + Math.cos(a) * rad;
+                    n.y = cy + Math.sin(a) * rad;
                 });
             }
 
-            const seeds = (data.inputWords || '')
-                .split(',')
-                .map(w => w.trim())
-                .filter(Boolean);
-            if (seeds.length) {
-                nodes.forEach(n => {
-                    if (!n.type && seeds.includes(String(n.id))) {
-                        n.type = 'root';
-                    }
-                });
-            }
-            if (nodes.length && !nodes.some(n => n.type === 'root')) {
-                nodes[0].type = 'root';
-            }
-            const styleCfg = { shape: 'star', rootColor: '#f8c537', nodeColor: '#5eead4', linkColor: '#5eead4', ...(data.style || {}) };
-
-            const lighten = (hex, amt = 0.25) => {
-                const n = hex.replace('#','');
-                if (n.length !== 6) return hex;
-                const num = parseInt(n, 16);
-                const r = Math.min(255, Math.max(0, ((num >> 16) & 0xff) + 255 * amt));
-                const g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + 255 * amt));
-                const b = Math.min(255, Math.max(0, (num & 0xff) + 255 * amt));
-                return '#' + [r,g,b].map(x => x.toString(16).padStart(2, '0')).join('');
-            };
-
+            // Bounding-box scale to fit with padding
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-            nodes.forEach(node => {
-                if (node.x < minX) minX = node.x;
-                if (node.x > maxX) maxX = node.x;
-                if (node.y < minY) minY = node.y;
-                if (node.y > maxY) maxY = node.y;
+            nodes.forEach(n => {
+                if (n.x < minX) minX = n.x; if (n.x > maxX) maxX = n.x;
+                if (n.y < minY) minY = n.y; if (n.y > maxY) maxY = n.y;
+            });
+            const pad    = size * (isExport ? 0.12 : 0.15);
+            const scaleF = Math.min((size - pad * 2) / (maxX - minX || 1), (size - pad * 2) / (maxY - minY || 1));
+            const tx     = (size - (maxX - minX) * scaleF) / 2 - minX * scaleF;
+            const ty     = (size - (maxY - minY) * scaleF) / 2 - minY * scaleF;
+            const gx = v => v * scaleF + tx;
+            const gy = v => v * scaleF + ty;
+
+            // Node lookup map for links
+            const nodeById = {};
+            nodes.forEach(n => { nodeById[n.id] = n; });
+
+            // Links
+            links.forEach(lnk => {
+                const s = nodeById[lnk.source?.id ?? lnk.source];
+                const t = nodeById[lnk.target?.id ?? lnk.target];
+                if (!s || !t) return;
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', gx(s.x).toFixed(2));
+                line.setAttribute('y1', gy(s.y).toFixed(2));
+                line.setAttribute('x2', gx(t.x).toFixed(2));
+                line.setAttribute('y2', gy(t.y).toFixed(2));
+                line.setAttribute('stroke', linkColor);
+                line.setAttribute('stroke-opacity', '0.55');
+                line.setAttribute('stroke-width', linkW);
+                svg.appendChild(line);
             });
 
-            const width = maxX - minX || 1;
-            const height = maxY - minY || 1;
-            const margin = size * 0.12;
-            const scale = Math.min((size - 2 * margin) / width, (size - 2 * margin) / height);
-            const offsetX = size / 2 - ((minX + maxX) / 2) * scale;
-            const offsetY = size / 2 - ((minY + maxY) / 2) * scale;
-
-            const starPath = (cx, cy, outer, inner, spikes = 5) => {
-                let path = '';
-                let rot = Math.PI / 2 * 3;
-                let x = cx;
-                let y = cy;
-                const step = Math.PI / spikes;
-                path += `M ${cx} ${cy - outer}`;
-                for (let i = 0; i < spikes; i++) {
-                    x = cx + Math.cos(rot) * outer;
-                    y = cy + Math.sin(rot) * outer;
-                    path += ` L ${x} ${y}`;
-                    rot += step;
-                    x = cx + Math.cos(rot) * inner;
-                    y = cy + Math.sin(rot) * inner;
-                    path += ` L ${x} ${y}`;
-                    rot += step;
-                }
-                return path + ' Z';
-            };
-
-            links.forEach(link => {
-                const sourceNode = nodes.find(n => n.id === link.source || n.id === link.source?.id);
-                const targetNode = nodes.find(n => n.id === link.target || n.id === link.target?.id);
-                if (sourceNode && targetNode) {
-                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                    line.setAttribute('x1', sourceNode.x * scale + offsetX);
-                    line.setAttribute('y1', sourceNode.y * scale + offsetY);
-                    line.setAttribute('x2', targetNode.x * scale + offsetX);
-                    line.setAttribute('y2', targetNode.y * scale + offsetY);
-                    line.setAttribute('stroke', styleCfg.linkColor || '#5eead4');
-                    line.setAttribute('stroke-width', Math.max(0.6, size * 0.0028));
-                    line.setAttribute('opacity', '0.4');
-                    svg.appendChild(line);
-                }
-            });
-
+            // Nodes
             nodes.forEach(node => {
-                const cx = node.x * scale + offsetX;
-                const cy = node.y * scale + offsetY;
-                const outer = Math.max(size * 0.022, node.type === 'root' ? size * 0.028 : size * 0.022);
-                const inner = outer * 0.48;
-                const fill = node.type === 'root' ? styleCfg.rootColor : styleCfg.nodeColor;
-                const stroke = lighten(fill, 0.18);
+                const cx   = gx(node.x);
+                const cy   = gy(node.y);
+                const isRoot = node.type === 'root';
+                const color  = isRoot ? rootColor : nodeColor;
+                const r      = isRoot ? nodeR * 1.35 : nodeR;
 
-                const makePath = () => {
-                    const shape = styleCfg.shape || 'star';
-                    if (shape === 'circle') {
-                        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                        circle.setAttribute('cx', cx);
-                        circle.setAttribute('cy', cy);
-                        circle.setAttribute('r', outer);
-                        circle.setAttribute('fill', fill);
-                        circle.setAttribute('stroke', stroke);
-                        circle.setAttribute('stroke-width', Math.max(1, size * 0.003));
-                        circle.setAttribute('opacity', '0.95');
-                        svg.appendChild(circle);
-                        return;
-                    }
-                    let pathD;
-                    if (shape === 'diamond') {
-                        pathD = `M ${cx} ${cy - outer} L ${cx + outer} ${cy} L ${cx} ${cy + outer} L ${cx - outer} ${cy} Z`;
-                    } else if (shape === 'triangle') {
-                        const h = outer * 1.4;
-                        pathD = `M ${cx} ${cy - h/2} L ${cx + outer} ${cy + h/2} L ${cx - outer} ${cy + h/2} Z`;
-                    } else {
-                        pathD = starPath(cx, cy, outer, inner);
-                    }
-                    const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    pathEl.setAttribute('d', pathD);
-                    pathEl.setAttribute('fill', fill);
-                    pathEl.setAttribute('stroke', stroke);
-                    pathEl.setAttribute('stroke-width', Math.max(1, size * 0.003));
-                    pathEl.setAttribute('opacity', '0.95');
-                    svg.appendChild(pathEl);
-                };
+                const el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                el.setAttribute('d', _shapeNodePath(shape, cx, cy, r));
+                el.setAttribute('fill', color);
+                el.setAttribute('stroke', _brighten(color));
+                el.setAttribute('stroke-width', isExport ? '2' : '1');
+                svg.appendChild(el);
 
-                makePath();
-
-                const fontSizePx = Math.max(8, Math.min(size * 0.02, 28));
-                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                label.setAttribute('x', cx);
-                label.setAttribute('y', cy - outer - fontSizePx * 0.4);
-                label.setAttribute('fill', '#000000');
-                label.setAttribute('font-size', `${fontSizePx}px`);
-                label.setAttribute('font-family', 'Space Grotesk, Segoe UI, sans-serif');
-                label.setAttribute('text-anchor', 'middle');
-                label.setAttribute('dominant-baseline', 'central');
-                label.textContent = node.id;
-                svg.appendChild(label);
+                if (fontSize > 0) {
+                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    text.setAttribute('x', cx.toFixed(2));
+                    text.setAttribute('y', (cy - r - (isExport ? 6 : 3)).toFixed(2));
+                    text.setAttribute('fill', '#e2e8f0');
+                    text.setAttribute('font-size', `${fontSize}px`);
+                    text.setAttribute('font-family', 'Space Grotesk, Arial, sans-serif');
+                    text.setAttribute('font-weight', isRoot ? '700' : '400');
+                    text.setAttribute('text-anchor', 'middle');
+                    text.setAttribute('paint-order', 'stroke');
+                    text.setAttribute('stroke', '#0a0f1c');
+                    text.setAttribute('stroke-width', isExport ? '4' : '2');
+                    text.textContent = node.id;
+                    svg.appendChild(text);
+                }
             });
 
             return svg;
         }
 
-        function viewConstellation(constellation) {
-            localStorage.setItem('editConstellation', JSON.stringify(constellation));
-            window.location.href = 'newc.html?edit=' + constellation.id;
+        function viewConstellation(cId) {
+            const c = window.constellationMap && window.constellationMap[cId];
+            if (!c) return alert('Constellation data not loaded yet. Try refreshing.');
+            localStorage.setItem('editConstellation', JSON.stringify(c));
+            window.location.href = 'newc.html?edit=' + cId;
+        }
+
+        async function deleteConstellation(cId) {
+            if (!confirm('Are you sure you want to delete this constellation? This cannot be undone.')) return;
+
+            const token = localStorage.getItem('token');
+            if (!token) return alert('Not logged in.');
+
+            try {
+                const res = await fetch(`http://localhost:3002/constellation/${cId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    return alert('Delete failed: ' + (err.message || res.status));
+                }
+
+                // Remove card from UI and update count
+                const item = document.getElementById(`preview-${cId}`)?.closest('.constellation-item');
+                if (item) item.remove();
+                if (window.constellationMap) delete window.constellationMap[cId];
+
+                const countEl = document.getElementById('constellations-count');
+                if (countEl) countEl.textContent = Math.max(0, parseInt(countEl.textContent) - 1);
+            } catch (e) {
+                alert('Network error: ' + e.message);
+            }
         }
 
         function shareConstellationLink(constellation) {
@@ -458,7 +556,7 @@
                 canvas.width = image.width || exportSize;
                 canvas.height = image.height || exportSize;
                 const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#ffffff';
+                ctx.fillStyle = '#0a0f1c';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
@@ -473,6 +571,11 @@
                 URL.revokeObjectURL(url);
             };
             image.src = url;
+        }
+
+        function csvEscape(val) {
+            const s = String(val === null || val === undefined ? '' : val);
+            return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
         }
 
         function downloadConstellationReport(constellation) {
@@ -490,51 +593,67 @@
                 return;
             }
 
-            const lines = [];
-            lines.push(`Constellation: ${constellation.name || 'Untitled'}`);
-            lines.push(`Created: ${constellation.created_at || 'n/a'}`);
-            lines.push('');
+            const rows = [];
 
-            const words = Array.isArray(data.words) ? data.words : (data.nodes || []).map(n => n.id);
-            lines.push('Words:');
-            lines.push(words.length ? ' - ' + words.join(', ') : ' - none');
-            lines.push('');
+            // --- Metadata ---
+            rows.push(['Constellation Report']);
+            rows.push(['Name', csvEscape(constellation.name || 'Untitled')]);
+            rows.push(['Created', csvEscape(constellation.created_at || 'n/a')]);
+            rows.push(['Nodes', (data.nodes || []).length]);
+            rows.push(['Links', (data.links || []).length]);
+            rows.push([]);
 
+            // --- Nodes ---
+            rows.push(['NODES']);
+            rows.push(['Word', 'Type', 'Categories']);
+            (data.nodes || []).forEach(n => {
+                rows.push([
+                    csvEscape(n.id),
+                    csvEscape(n.type || ''),
+                    csvEscape((n.categories || []).join('; '))
+                ]);
+            });
+            rows.push([]);
+
+            // --- Connections ---
+            rows.push(['CONNECTIONS']);
+            rows.push(['Source', 'Target']);
+            (data.links || []).forEach(l => {
+                const src = l.source?.id ?? l.source;
+                const tgt = l.target?.id ?? l.target;
+                rows.push([csvEscape(src), csvEscape(tgt)]);
+            });
+            rows.push([]);
+
+            // --- Economic Tags ---
+            rows.push(['ECONOMIC TAGS']);
+            rows.push(['Tag']);
             const economy = Array.isArray(data.economy) ? data.economy : [];
-            lines.push('Economic Tags:');
-            lines.push(economy.length ? ' - ' + economy.join(', ') : ' - none');
-            lines.push('');
+            if (economy.length) economy.forEach(e => rows.push([csvEscape(e)]));
+            else rows.push(['none']);
+            rows.push([]);
 
+            // --- Trending Topics ---
+            rows.push(['TRENDING TOPICS']);
+            rows.push(['Topic']);
             const trends = Array.isArray(data.trends) ? data.trends : [];
-            lines.push('Trendy Topics:');
-            lines.push(trends.length ? ' - ' + trends.join(', ') : ' - none');
-            lines.push('');
+            if (trends.length) trends.forEach(t => rows.push([csvEscape(t)]));
+            else rows.push(['none']);
+            rows.push([]);
 
+            // --- Suggested Careers ---
+            rows.push(['SUGGESTED CAREERS']);
+            rows.push(['Career']);
             const careers = Array.isArray(data.careers) ? data.careers : [];
-            lines.push('Suggested Careers:');
-            lines.push(careers.length ? careers.map(c => ` - ${c}`).join('\n') : ' - none');
-            lines.push('');
+            if (careers.length) careers.forEach(c => rows.push([csvEscape(c)]));
+            else rows.push(['none']);
 
-            const nodeCount = (data.nodes || []).length;
-            const linkCount = (data.links || []).length;
-            lines.push(`Nodes: ${nodeCount}`);
-            lines.push(`Links: ${linkCount}`);
-            lines.push('');
-
-            lines.push('Nodes Detail:');
-            if (data.nodes && data.nodes.length) {
-                data.nodes.forEach(n => {
-                    lines.push(` - ${n.id}${n.categories && n.categories.length ? ' [' + n.categories.join(', ') + ']' : ''}`);
-                });
-            } else {
-                lines.push(' - none');
-            }
-
-            const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+            const csv = rows.map(r => r.join(',')).join('\r\n');
+            const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${constellation.name || 'constellation'}-report.txt`;
+            a.download = `${constellation.name || 'constellation'}-report.csv`;
             a.click();
             URL.revokeObjectURL(url);
         }
@@ -568,15 +687,45 @@
             }
         }
 
-        function changeProfileImage() {
-            const newImage = prompt("Enter the URL of the new profile image:");
-            if (newImage) {
-                document.getElementById('account-icon').style.backgroundImage = `url('${newImage}')`;
-                const user = JSON.parse(localStorage.getItem('user'));
-                user.profileImage = newImage;
-                localStorage.setItem('user', JSON.stringify(user));
-            }
+        function generateUserStar() {
+            const iconEl = document.getElementById('account-icon');
+            const userName = document.getElementById('user-name').textContent || "Guest";
+
+            // Listă de culori frumoase pentru stele
+            const colors = ['#f8c537', '#5eead4', '#ff4d4d', '#9fb2d7', '#c084fc', '#fb923c'];
+            
+            // Alegem o culoare bazată pe lungimea numelui (ca să fie "semnatura" lui)
+            const colorIndex = userName.length % colors.length;
+            const starColor = colors[colorIndex];
+
+            // Desenul SVG al stelei
+            const starSvg = `
+                <svg viewBox="0 0 24 24" fill="${starColor}" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279-7.416-3.967-7.417 3.967 1.481-8.279-6.064-5.828 8.332-1.151z"/>
+                </svg>
+            `;
+
+            iconEl.innerHTML = starSvg;
         }
+
+        // Apelăm funcția în interiorul window.onload, după ce se încarcă datele userului
+        window.onload = async function() {
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (user) {
+                document.getElementById('user-name').textContent = user.username || user.name;
+                document.getElementById('user-email').textContent = user.email;
+                
+                // Generăm steaua după ce avem numele userului
+                generateUserStar();
+                
+                // Încărcăm constelațiile (asigură-te că folosești varianta cu TOKEN)
+                await loadSavedConstellations();
+            } else {
+                window.location.href = 'login.html';
+            }
+            
+            if (typeof checkHealth === 'function') checkHealth();
+        };
 
         function showReportInput() {
             document.getElementById('report-container').style.display = 'block';
@@ -597,17 +746,21 @@
                 return;
             }
 
-            const reportData = {
-                report: reportContent,
-                id: user.id
-            };
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Please log in first to submit a report.');
+                window.location.href = 'login.html';
+                return;
+            }
 
-            const backendUrl = 'http://localhost:3002';
-            console.log('Submitting report to:', `${backendUrl}/submit-report`);
-            console.log('Report data:', reportData);
-            fetch(`${backendUrl}/submit-report`, {
+            const reportData = { report: reportContent };
+
+            fetch('http://localhost:3002/submit-report', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify(reportData),
             })
             .then(response => {
