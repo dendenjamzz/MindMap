@@ -9,23 +9,25 @@
     <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body class="page-newc">
-    <div class="star-field star-field-left"  id="star-field-left"  aria-hidden="true"></div>
-    <div class="star-field star-field-right" id="star-field-right" aria-hidden="true"></div>
-    <div class="form-container">
-        <h1>Word Constellation</h1>
-        <p>
-            Enter up to <b>10 words</b> separated by commas. Example: <i>cat, dog, apple</i>.<br>
-            English only. If a word doesn’t appear, check spelling.
-        </p>
-        <textarea id="words-input" placeholder="Ex: cat, dog, apple"></textarea>
-        <button id="submit-button">Submit</button>        <div class="action-buttons">
-            <button id="save-button">Save Constellation</button>
-            <button id="back-button" onclick="window.location.href='confirmation.html'">Back to Account</button>
-        </div>    </div>
-    <div id="health-banner">
-        Some services are unreachable. Saving or processing may fail.
-    </div>
+    <nav class="newc-navbar">
+        <span class="navbar-logo">✦ MindMap</span>
+        <button type="button" id="back-button" class="newc-back-btn">&larr; My Constellations</button>
+    </nav>
+
+    <div id="health-banner">Some services are unreachable. Saving or processing may fail.</div>
     <div id="status-area"></div>
+
+    <div class="newc-main">
+        <div class="form-container">
+            <h1>Word Constellation</h1>
+            <p>Enter up to <b>10 words</b> separated by commas — example: <i>cat, dog, apple</i>.<br>
+            English only. If a word doesn’t appear, check spelling.</p>
+            <textarea id="words-input" placeholder="cat, dog, apple..."></textarea>
+            <div class="action-buttons">
+                <button type="button" id="submit-button">Generate</button>
+                <button type="button" id="save-button">Save</button>
+            </div>
+        </div>
     <div id="graph-container">
         <div id="graph-loading"><span class="loading-spinner"></span><span id="graph-loading-text">Loading constellation...</span></div>
         <div id="zoom-controls">
@@ -102,6 +104,10 @@
         let statusTimer = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('back-button').addEventListener('click', () => {
+                window.location.href = 'confirmation.html';
+            });
+
             try {
                 const stored = JSON.parse(localStorage.getItem(styleDefaultKey) || 'null');
                 if (stored) currentStyle = { ...defaultStyle, ...stored };
@@ -294,8 +300,10 @@
                 try {
                     const data = JSON.parse(text);
                     if (response.ok) {
+                        const prevName = currentConstellationData?.name;
                         currentConstellationData = data;
                         currentConstellationData.inputWords = words;
+                        if (prevName) currentConstellationData.name = prevName;
                         renderGraph(data);
                         updatePanels(data);
                         document.getElementById('save-button').style.display = 'block';
@@ -998,50 +1006,7 @@
 
     </script>
 
-    <script>
-        (function () {
-            const GLYPHS = ['✦', '✧', '✩', '⋆', '˚', '*', '°', '·', '+'];
-            const COLORS = ['#f8c537', '#5eead4', '#ffffff', '#c4b5fd', '#fbbf24', '#a5f3fc'];
-
-            function spawnStars(field, count) {
-                if (!field) return;
-                const fieldW = 180;
-                for (let i = 0; i < count; i++) {
-                    const el = document.createElement('span');
-                    el.className = 'falling-star';
-                    el.setAttribute('aria-hidden', 'true');
-
-                    const size     = 8   + Math.random() * 14;
-                    const left     = Math.random() * fieldW;
-                    const dur      = 3.5 + Math.random() * 6;
-                    const delay    = -(Math.random() * dur);
-                    const driftX   = (Math.random() - 0.5) * 40;
-                    const spinDeg  = (Math.random() - 0.5) * 360;
-                    const fallDist = window.innerHeight * (0.4 + Math.random() * 0.5);
-                    const color    = COLORS[Math.floor(Math.random() * COLORS.length)];
-
-                    el.textContent = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
-
-                    el.style.left              = left + 'px';
-                    el.style.top               = (Math.random() * -60) + 'px';
-                    el.style.fontSize          = size + 'px';
-                    el.style.color             = color;
-                    el.style.textShadow        = `0 0 8px ${color}cc, 0 0 18px ${color}55`;
-                    el.style.animationDuration = dur + 's';
-                    el.style.animationDelay    = delay + 's';
-
-                    el.style.setProperty('--drift-x',   driftX   + 'px');
-                    el.style.setProperty('--spin-deg',  spinDeg  + 'deg');
-                    el.style.setProperty('--fall-dist', fallDist + 'px');
-
-                    field.appendChild(el);
-                }
-            }
-
-            spawnStars(document.getElementById('star-field-left'),  20);
-            spawnStars(document.getElementById('star-field-right'), 20);
-        })();
-    </script>
+    </div> <!-- end newc-main -->
 </body>
 </html>
 

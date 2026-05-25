@@ -186,6 +186,68 @@ button {
     font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
 }
 
+/* Logo */
+.page-auth .auth-logo {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 22px;
+    letter-spacing: 0.5px;
+}
+
+/* Tab switcher */
+.page-auth .auth-tabs {
+    display: flex;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--stroke);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 20px;
+    gap: 4px;
+}
+
+.page-auth .auth-tab {
+    flex: 1;
+    padding: 9px;
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    box-shadow: none;
+    margin-top: 0;
+    width: auto;
+}
+
+.page-auth .auth-tab.active {
+    background: var(--accent);
+    color: #0b1224;
+}
+
+.page-auth .auth-tab:hover:not(.active) {
+    background: rgba(255,255,255,0.06);
+    color: var(--text);
+    transform: none;
+}
+
+/* Hidden form */
+.page-auth .form-hidden {
+    display: none;
+}
+
+/* Status messages */
+.page-auth #login-status,
+.page-auth #signup-status {
+    margin-top: 10px;
+    font-size: 14px;
+    min-height: 20px;
+}
+
 /* Form container */
 .page-auth .form-container {
     background: var(--panel);
@@ -320,8 +382,64 @@ button {
     font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
     display: flex;
     flex-direction: column;
+    align-items: stretch;
+    padding: 0;
+}
+
+/* Navbar */
+.page-newc .newc-navbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    width: 100%;
+    display: flex;
     align-items: center;
-    padding: 20px 18px 32px;
+    justify-content: space-between;
+    padding: 0 32px;
+    height: 64px;
+    background: rgba(8, 13, 26, 0.95);
+    border-bottom: 1px solid rgba(94, 234, 212, 0.12);
+    backdrop-filter: blur(8px);
+    box-sizing: border-box;
+}
+
+.page-newc .navbar-logo {
+    font-size: 18px;
+    font-weight: 700;
+    color: #f8c537;
+    letter-spacing: 0.5px;
+}
+
+.page-newc .newc-back-btn {
+    width: auto;
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 8px;
+    box-shadow: none;
+    margin-top: 0;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.page-newc .newc-back-btn:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #e2e8f0;
+    background: transparent;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Main content wrapper */
+.page-newc .newc-main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 18px 48px;
+    width: 100%;
 }
 
 /* Form containers */
@@ -354,37 +472,6 @@ button {
 /* No static star on the appearance panel — replaced by animated field */
 .page-newc .form-container--compact::before {
     display: none;
-}
-
-/* Falling star fields — fixed to page corners */
-.page-newc .star-field {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    width: 180px;
-    pointer-events: none;
-    overflow: hidden;
-    z-index: 0;
-}
-
-.page-newc .star-field-left  { left:  0; }
-.page-newc .star-field-right { right: 0; }
-
-.page-newc .falling-star {
-    position: absolute;
-    pointer-events: none;
-    -webkit-user-select: none;
-    user-select: none;
-    line-height: 1;
-    animation: starFall linear infinite;
-    animation-fill-mode: both;
-}
-
-@keyframes starFall {
-    0%   { transform: translateY(-20px) translateX(0px);                                                opacity: 0;   }
-    8%   {                                                                                               opacity: 1;   }
-    85%  {                                                                                               opacity: 0.8; }
-    100% { transform: translateY(var(--fall-dist)) translateX(var(--drift-x)) rotate(var(--spin-deg)); opacity: 0;   }
 }
 
 /* Headings and titles */
@@ -714,10 +801,12 @@ button {
 /* Status area */
 .page-newc #status-area {
     position: fixed;
-    top: 14px;
-    right: 14px;
+    top: 74px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 8px;
     z-index: 2000;
 }
@@ -998,76 +1087,6 @@ button {
     transform: translateY(-1px) scale(1.01);
 }
 
-/* Light theme */
-.page-confirmation.light {
-    background: #f6f7fb;
-    color: #0b1224;
-}
-
-.page-confirmation.light .side-window {
-    background: #ffffff;
-    border-right: 1px solid #e1e6f0;
-    color: #0b1224;
-}
-
-.page-confirmation.light .main-content {
-    background: #fdfefe;
-    color: #0b1224;
-}
-
-.page-confirmation.light .account-details p,
-.page-confirmation.light .main-content p,
-.page-confirmation.light .report-container textarea,
-.page-confirmation.light #constellations-status {
-    color: #1b2436;
-}
-
-.page-confirmation.light .report-container {
-    border-top-color: #e1e6f0;
-}
-
-.page-confirmation.light .account-icon {
-    border-color: #e1e6f0;
-}
-
-.page-confirmation.light .back-login {
-    box-shadow: 0 12px 26px rgba(0,0,0,0.10);
-}
-
-.page-confirmation.light .button {
-    box-shadow: 0 10px 20px rgba(0,0,0,0.12);
-}
-
-.page-confirmation.light #saved-constellations {
-    background: #ffffff;
-    border: 1px solid #e1e6f0;
-}
-
-.page-confirmation.light .constellation-item {
-    background: #ffffff;
-    border: 1px solid #cbd5e1;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-}
-
-/* Ne asigurăm că și textul de pe buton rămâne lizibil */
-.page-confirmation.light .constellation-item button {
-    color: #0b1224; /* Text închis pe butonul galben/verde */
-}
-
-/* Light theme - Fix pentru titlul secțiunii de salvări */
-.page-confirmation.light #saved-constellations h2 {
-    color: #0f172a !important; /* Culoare închisă pentru titlu */
-}
-
-.page-confirmation.light .constellation-item:hover {
-    background: #f8fafc;
-    border-color: var(--accent-2);
-}
-
-.page-confirmation.light .constellation-preview {
-    background: #e8ecf5;
-}
-
 /* Saved constellations */
 .page-confirmation #saved-constellations {
     margin-top: 28px;
@@ -1104,15 +1123,6 @@ button {
     min-height: 250px;
     height: auto;
     overflow: visible;
-}
-
-/* Light theme - Corecții pentru vizibilitate text */
-.page-confirmation.light .constellation-name {
-    color: #0f172a !important; /* Un albastru foarte închis/negru */
-}
-
-.page-confirmation.light .constellation-date {
-    color: #475569 !important; /* Un gri închis pentru dată */
 }
 
 /* Ne asigurăm că info și butonul au loc */
@@ -1265,12 +1275,6 @@ button {
     background: rgba(52, 211, 153, 0.15);
     box-shadow: 0 4px 14px rgba(52, 211, 153, 0.2);
 }
-
-/* Light mode adjustments for card action buttons */
-.page-confirmation.light .card-action-btn.btn-edit  { background: rgba(94, 234, 212, 0.10); }
-.page-confirmation.light .card-action-btn.btn-delete { background: rgba(248, 113, 113, 0.10); }
-.page-confirmation.light .card-action-btn.btn-png    { background: rgba(167, 139, 250, 0.10); }
-.page-confirmation.light .card-action-btn.btn-report { background: rgba(52, 211, 153, 0.10); }
 
 /* Constellations loading */
 .page-confirmation #constellations-loading {

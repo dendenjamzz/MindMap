@@ -11,7 +11,7 @@ import re
 import traceback
 
 
-#reads the economic sectors json file and returns it, empty dict if file is missing
+#reads the economic sectors json and returns it, empty dict if file is missing
 def load_economic_sectors():
     file_path = 'economic_sectors.json'
     if os.path.exists(file_path):
@@ -22,7 +22,7 @@ def load_economic_sectors():
 ECONOMIC_SECTORS_DB = load_economic_sectors()
 
 
-#reads the trending topics json file, same deal as above
+#reads the trending topics json
 def load_trending_topics():
     file_path = 'trending_topics.json'
     if os.path.exists(file_path):
@@ -33,7 +33,7 @@ def load_trending_topics():
 TRENDING_TOPICS_DB = load_trending_topics()
 
 
-#reads the domain keywords json file
+#reads the domain keywords json
 def load_domain_keywords():
     file_path = 'domain_keywords.json'
     if os.path.exists(file_path):
