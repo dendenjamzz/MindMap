@@ -6,48 +6,56 @@ const bcrypt = require('bcryptjs');
 const mysql = require('mysql2');
 const cors = require('cors');
 const axios = require('axios');
-const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 
 dotenv.config();
 
-const EMAIL_CONFIRMATION_REQUIRED = String(process.env.EMAIL_CONFIRMATION_REQUIRED || '').toLowerCase() === 'true';
-
+//allows requests from any origin (needed so the browser doesn't block the frontend)
+//server to other server communication is allowed here
+//only for development 
 const corsOptions = {
     origin: (origin, callback) => {
-        return callback(null, true);
+        return callback(null, true);//allow all origins
     },
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: [
+        'GET',     //read / fetch data
+        'POST',    //create something new
+        'PUT',     //update / replace something
+        'DELETE',  //delete something
+        'OPTIONS', //preflight request for CORS
+    ],
     allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
 };
 
-const app = express();
+const app = express();//for http responses
+const PORT = 3002;
+
+//logs every req for debug
 app.use((req, res, next) => {
     console.log(`[${new Date().toLocaleString()}] ${req.method} ${req.path}`);
     next();
 });
-const PORT = 3002;
 
-app.use(helmet());
-
+//rate limiter max 100 requests per 15 minutes per user, prevents spam/bots
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    standardHeaders: true,
-    legacyHeaders: false,
+    windowMs: 15 * 60 * 1000,//window of 15 minutes in milisec
+    max: 100,//100 requests max per window per IP
+    standardHeaders: true, //how many requests are left and when the limit resets
+    legacyHeaders: false,  //disables the old duplicate version of headers
 });
 app.use(limiter);
 
-const JWT_SECRET = process.env.JWT_SECRET || 'please_change_this_to_a_strong_secret';
+//secret key used to sign and verify JWT tokens
+const JWT_SECRET = process.env.JWT_SECRET || 'default';
 
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.use(cors(corsOptions));//enable cors pe requests
+app.options('*', cors(corsOptions));//enable cors pe preflight 
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '50mb' }));//parse json also for large constellation data
 
+//db and email null state
 let db = null;
 const dbConnectionMeta = {
     connected: false,
@@ -62,6 +70,7 @@ const emailState = {
     error: 'Not initialized',
 };
 
+//tells the frontend if the server and database are running ok
 app.get('/health', (req, res) => {
     const healthy = dbConnectionMeta.connected;
     res.status(healthy ? 200 : 503).json({
@@ -84,6 +93,7 @@ app.get('/health', (req, res) => {
     });
 });
 
+//user clicks the confirmation link in their email,this marks their account as confirmed
 app.get('/confirm', (req, res) => {
     const { email } = req.query;
 
@@ -101,6 +111,7 @@ app.get('/confirm', (req, res) => {
     });
 });
 
+// the signup page polls this every few seconds to see if the user confirmed their email yet
 app.get('/is-confirmed', (req, res) => {
     const { email } = req.query;
     if (!email) return res.status(400).json({ confirmed: false, error: 'Email is required' });
@@ -118,7 +129,10 @@ app.get('/is-confirmed', (req, res) => {
     });
 });
 
+// serves the HTML files from the project folder
 app.use(express.static(path.join(__dirname, '../../')));
+
+// --- database setup ---
 
 const dbBaseConfig = {
     host: process.env.DB_HOST,
@@ -133,6 +147,7 @@ const dbPoolOptions = {
     queueLimit: 0
 };
 
+// builds a list of possible db credentials to try (handles root with/without password)
 function buildDbCandidates() {
     const configured = {
         ...dbBaseConfig,
@@ -145,6 +160,7 @@ function buildDbCandidates() {
     return candidates;
 }
 
+// connects to mysql, creates the database if it doesn't exist, and creates the tables
 async function ensureDatabaseWithConfig(dbConfig) {
     return new Promise((resolve, reject) => {
         const adminConn = mysql.createConnection({
@@ -164,6 +180,7 @@ async function ensureDatabaseWithConfig(dbConfig) {
                 adminConn.changeUser({ database: dbConfig.database }, (err) => {
                     if (err) { console.error('Failed to switch to database:', err.message); adminConn.end(); return reject(err); }
 
+                    // creates the users and constellations tables if they don't already exist
                     const createTablesSQL = `
                         CREATE TABLE IF NOT EXISTS users (
                             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -173,13 +190,6 @@ async function ensureDatabaseWithConfig(dbConfig) {
                             confirmed TINYINT(1) NOT NULL DEFAULT 0,
                             profileImage VARCHAR(512) NULL,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                        );
-                        CREATE TABLE IF NOT EXISTS reports (
-                            id INT AUTO_INCREMENT PRIMARY KEY,
-                            user_id INT NOT NULL,
-                            report_content TEXT NOT NULL,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                         );
                         CREATE TABLE IF NOT EXISTS constellations (
                             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -194,16 +204,7 @@ async function ensureDatabaseWithConfig(dbConfig) {
                     adminConn.query(createTablesSQL, (err) => {
                         if (err) { console.error('Failed to ensure tables:', err.message); adminConn.end(); return reject(err); }
 
-                        // add status column if it is missing
-                        adminConn.query(`SHOW COLUMNS FROM reports LIKE 'status'`, (colErr, colResults) => {
-                            if (!colErr && colResults.length === 0) {
-                                adminConn.query(
-                                    `ALTER TABLE reports ADD COLUMN status ENUM('pending','reviewed','closed') NOT NULL DEFAULT 'pending'`,
-                                    (migErr) => { if (migErr) console.warn('reports.status migration:', migErr.message); }
-                                );
-                            }
-                        });
-
+                        // makes sure constellation_data is LONGTEXT (big enough for large constellations)
                         adminConn.query(`SHOW COLUMNS FROM constellations LIKE 'constellation_data'`, (checkErr, results) => {
                             if (checkErr) { adminConn.end(); console.warn('Could not check column:', checkErr.message); return resolve(); }
 
@@ -214,7 +215,6 @@ async function ensureDatabaseWithConfig(dbConfig) {
                                     resolve();
                                 });
                             } else {
-                                // force LONGTEXT in case it was created as a smaller type
                                 adminConn.query(`ALTER TABLE constellations MODIFY COLUMN constellation_data LONGTEXT NOT NULL;`, (migErr) => {
                                     adminConn.end();
                                     if (migErr) console.warn('LONGTEXT upgrade failed:', migErr.message);
@@ -229,6 +229,7 @@ async function ensureDatabaseWithConfig(dbConfig) {
     });
 }
 
+// tries each db config until one works, then creates a connection pool
 async function initializeDatabase() {
     const candidates = buildDbCandidates();
     let lastError = null;
@@ -257,9 +258,12 @@ async function initializeDatabase() {
 
 initializeDatabase();
 
+// --- email setup ---
+
 const emailUser = String(process.env.EMAIL || '').trim();
 const emailPassword = String(process.env.EMAIL_PASSWORD || '').trim();
 
+// sets up nodemailer with gmail credentials from .env so we can send confirmation emails
 if (emailUser && emailPassword) {
     emailState.configured = true;
     transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: emailUser, pass: emailPassword } });
@@ -279,9 +283,12 @@ if (emailUser && emailPassword) {
     emailState.configured = false;
     emailState.ready = false;
     emailState.error = 'Missing EMAIL or EMAIL_PASSWORD';
-    console.warn('Email not configured. Signup runs without confirmation unless EMAIL_CONFIRMATION_REQUIRED=true.');
+    console.warn('Email not configured. Signup will be blocked until EMAIL and EMAIL_PASSWORD are set in .env.');
 }
 
+// --- auth routes ---
+
+// creates a new account — validates input, hashes the password, sends a confirmation email
 app.post('/signup',
     [
         body('username').trim().isLength({ min: 3 }).withMessage('Username must be at least 3 characters'),
@@ -303,35 +310,30 @@ app.post('/signup',
                 conn.query('SELECT * FROM users WHERE email = ?', [email], async (err, result) => {
                     if (err) {
                         conn.release();
-                        console.error('Database error during email check:', err.message);
                         return res.status(500).json({ error: 'Failed to check user', detail: err.message });
                     }
 
                     if (result.length > 0) { conn.release(); return res.status(400).json({ error: 'Email already exists' }); }
 
-                    const hashedPassword = await bcrypt.hash(password, 12);
-
-                    if (EMAIL_CONFIRMATION_REQUIRED && !emailState.ready) {
+                    // block signup entirely if email is not configured — no confirmation = no account
+                    if (!emailState.ready) {
                         conn.release();
-                        return res.status(503).json({ error: 'Email service unavailable. Set EMAIL_PASSWORD or disable EMAIL_CONFIRMATION_REQUIRED.' });
+                        return res.status(503).json({ error: 'Email confirmation is required but the email service is not configured. Please contact the administrator.' });
                     }
 
-                    const initialConfirmed = emailState.ready ? 0 : 1;
+                    // bcrypt hashes the password — we never store the real password
+                    const hashedPassword = await bcrypt.hash(password, 12);
 
-                    conn.query('INSERT INTO users (username, email, password, confirmed) VALUES (?, ?, ?, ?)',
-                        [username, email, hashedPassword, initialConfirmed],
+                    // account starts unconfirmed — user must click the link in their email
+                    conn.query('INSERT INTO users (username, email, password, confirmed) VALUES (?, ?, ?, 0)',
+                        [username, email, hashedPassword],
                         (err, result) => {
                             if (err) {
                                 conn.release();
-                                console.error('Database error during user insert:', err.message);
                                 return res.status(500).json({ error: 'Failed to create user', detail: err.message });
                             }
 
-                            if (!emailState.ready) {
-                                conn.release();
-                                return res.status(200).json({ message: 'Signup successful! Email confirmation is disabled in local mode.', emailConfirmationRequired: false });
-                            }
-
+                            const newUserId = result.insertId;
                             const appUrl = process.env.APP_URL || 'http://localhost:3002';
                             const confirmUrl = `${appUrl}/confirm?email=${encodeURIComponent(email)}`;
                             const mailOptions = {
@@ -344,18 +346,17 @@ app.post('/signup',
                             transporter.sendMail(mailOptions, (error, info) => {
                                 if (error) {
                                     console.error('Error sending confirmation email:', error.message);
-                                    if (EMAIL_CONFIRMATION_REQUIRED) { conn.release(); return res.status(500).json({ error: 'Error sending confirmation email', detail: error.message }); }
 
-                                    conn.query('UPDATE users SET confirmed = 1 WHERE id = ?', [result.insertId], (updateErr) => {
+                                    // email failed — delete the account so the user can try again later
+                                    conn.query('DELETE FROM users WHERE id = ?', [newUserId], (deleteErr) => {
                                         conn.release();
-                                        if (updateErr) return res.status(200).json({ message: 'Signup successful, but email failed. Contact support.', emailConfirmationRequired: true });
-                                        return res.status(200).json({ message: 'Signup successful! Email failed, account auto-confirmed for local dev.', emailConfirmationRequired: false });
+                                        return res.status(500).json({ error: 'Failed to send confirmation email. Please try again later.' });
                                     });
                                     return;
                                 }
 
                                 conn.release();
-                                res.status(200).json({ message: 'Signup successful! Please check your email.', emailConfirmationRequired: true });
+                                res.status(200).json({ message: 'Signup successful! Please check your email to confirm your account.', emailConfirmationRequired: true });
                             });
                         }
                     );
@@ -367,6 +368,7 @@ app.post('/signup',
         }
     });
 
+// checks email and password, returns a JWT token if correct
 app.post('/login',
     [
         body('email').isEmail().withMessage('Valid email required'),
@@ -383,6 +385,7 @@ app.post('/login',
         db.getConnection((err, conn) => {
             if (err) return res.status(500).json({ error: 'Server error' });
 
+            // LOWER() on both sides so login works regardless of email casing
             conn.query('SELECT * FROM users WHERE LOWER(email) = LOWER(?)', [email], async (err, results) => {
                 conn.release();
 
@@ -393,10 +396,11 @@ app.post('/login',
 
                 if (user.confirmed !== 1) return res.status(400).json({ error: 'Please confirm your email before logging in.' });
 
+                // bcrypt.compare checks the plain password against the stored hash
                 const isPasswordCorrect = await bcrypt.compare(password, user.password);
                 if (!isPasswordCorrect) return res.status(400).json({ error: 'Incorrect password' });
 
-                // email in token so admin check works server-side
+                // sign a token that expires in 1 hour — sent to the frontend and stored in localStorage
                 const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
                 res.status(200).json({
                     message: 'Login successful',
@@ -408,7 +412,7 @@ app.post('/login',
         });
     });
 
-// auth middleware
+// middleware that runs before protected routes — checks the JWT token from the Authorization header
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -421,121 +425,9 @@ function authenticateToken(req, res, next) {
     });
 }
 
-app.post('/submit-report', authenticateToken, (req, res) => {
-    const { report } = req.body;
-    const id = req.user.id;
+// --- constellation routes ---
 
-    if (!report) return res.status(400).json({ message: 'Report content is required.' });
-    if (!db) return res.status(503).json({ message: 'Database unavailable.' });
-
-    db.getConnection((err, conn) => {
-        if (err) return res.status(500).json({ message: 'Error submitting the report.' });
-
-        conn.query('INSERT INTO reports (user_id, report_content) VALUES (?, ?)', [id, report], (err) => {
-            conn.release();
-            if (err) { console.error('Error saving report:', err.message); return res.status(500).json({ message: 'Error submitting the report.' }); }
-            res.status(200).json({ message: 'Report submitted successfully.' });
-        });
-    });
-});
-
-// admin
-const ADMIN_EMAILS = (process.env.ADMIN_EMAIL || '')
-    .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-
-function requireAdmin(req, res, next) {
-    if (!ADMIN_EMAILS.includes((req.user.email || '').toLowerCase())) {
-        return res.status(403).json({ message: 'Admin access required.' });
-    }
-    next();
-}
-
-// admin ping
-app.get('/admin/check', authenticateToken, requireAdmin, (req, res) => {
-    res.json({ admin: true });
-});
-
-// get all reports with user info
-app.get('/admin/reports', authenticateToken, requireAdmin, (req, res) => {
-    if (!db) return res.status(503).json({ message: 'Database unavailable.' });
-    db.getConnection((err, conn) => {
-        if (err) return res.status(500).json({ message: 'DB connection error.' });
-
-        // detect actual column names (schema may vary)
-        conn.query(`SHOW COLUMNS FROM reports`, (colErr, columns) => {
-            if (colErr) {
-                conn.release();
-                console.error('Error reading reports schema:', colErr.message);
-                return res.status(500).json({ message: 'Error reading reports schema.', detail: colErr.message });
-            }
-
-            const fields = columns.map(c => c.Field);
-            const idField      = fields.includes('id')             ? 'reports.id'             : fields.find(f => f.endsWith('_id') && f !== 'user_id') || fields[0];
-            const contentField = fields.includes('report_content') ? 'reports.report_content' : fields.includes('content') ? 'reports.content' : 'reports.' + fields[1];
-            const statusField  = fields.includes('status')         ? 'reports.status'         : `'pending' AS status`;
-            const createdField = fields.includes('created_at')     ? 'reports.created_at'     : `NULL AS created_at`;
-
-            const query = `
-                SELECT ${idField} AS id,
-                       ${contentField} AS report_content,
-                       ${statusField},
-                       ${createdField},
-                       reports.user_id,
-                       users.username,
-                       users.email
-                FROM reports
-                JOIN users ON reports.user_id = users.id
-                ORDER BY reports.created_at DESC`;
-
-            conn.query(query, (err, rows) => {
-                conn.release();
-                if (err) {
-                    console.error('Error fetching admin reports:', err.message);
-                    return res.status(500).json({ message: 'Error fetching reports.', detail: err.message });
-                }
-                res.json(rows);
-            });
-        });
-    });
-});
-
-// update report status
-app.patch('/admin/report/:id/status', authenticateToken, requireAdmin, (req, res) => {
-    const { status } = req.body;
-    if (!['pending', 'reviewed', 'closed'].includes(status)) return res.status(400).json({ message: 'Invalid status.' });
-    if (!db) return res.status(503).json({ message: 'Database unavailable.' });
-
-    db.getConnection((err, conn) => {
-        if (err) return res.status(500).json({ message: 'DB connection error.' });
-
-        conn.query(`SHOW COLUMNS FROM reports`, (colErr, columns) => {
-            if (colErr) { conn.release(); return res.status(500).json({ message: 'Error reading schema.', detail: colErr.message }); }
-
-            const fields  = columns.map(c => c.Field);
-            const idField = fields.includes('id') ? 'id' : fields.find(f => f.endsWith('_id') && f !== 'user_id') || fields[0];
-            const hasStatus = fields.includes('status');
-
-            const doUpdate = () => {
-                conn.query(`UPDATE reports SET status = ? WHERE ${idField} = ?`, [status, req.params.id], (err, result) => {
-                    conn.release();
-                    if (err) { console.error('Error updating report status:', err.message); return res.status(500).json({ message: 'Error updating status.', detail: err.message }); }
-                    if (result.affectedRows === 0) return res.status(404).json({ message: 'Report not found.' });
-                    res.json({ message: 'Status updated.' });
-                });
-            };
-
-            if (!hasStatus) {
-                conn.query(`ALTER TABLE reports ADD COLUMN status ENUM('pending','reviewed','closed') NOT NULL DEFAULT 'pending'`, (migErr) => {
-                    if (migErr) { conn.release(); return res.status(500).json({ message: 'Could not add status column.', detail: migErr.message }); }
-                    doUpdate();
-                });
-            } else {
-                doUpdate();
-            }
-        });
-    });
-});
-
+// saves a new constellation to the database
 app.post('/save-constellation', authenticateToken, (req, res) => {
     const { name, constellationData } = req.body;
     const userId = req.user.id;
@@ -544,7 +436,7 @@ app.post('/save-constellation', authenticateToken, (req, res) => {
     if (!db) return res.status(503).json({ message: 'Database unavailable.' });
 
     db.getConnection((err, conn) => {
-        if (err) { console.error('Database connection error:', err.message); return res.status(500).json({ message: 'Error connecting to database.' }); }
+        if (err) return res.status(500).json({ message: 'Error connecting to database.' });
 
         const dataToSave = typeof constellationData === 'string' ? constellationData : JSON.stringify(constellationData);
 
@@ -556,6 +448,7 @@ app.post('/save-constellation', authenticateToken, (req, res) => {
     });
 });
 
+// updates an existing constellation (name + data) when the user edits and saves again
 app.put('/update-constellation/:id', authenticateToken, (req, res) => {
     const constellationId = req.params.id;
     const { name, constellationData } = req.body;
@@ -564,24 +457,18 @@ app.put('/update-constellation/:id', authenticateToken, (req, res) => {
     if (!db) return res.status(503).json({ message: 'Database unavailable.' });
 
     db.getConnection((err, conn) => {
-        if (err) { console.error('Database connection error:', err); return res.status(500).json({ message: 'Error connecting to database.' }); }
+        if (err) return res.status(500).json({ message: 'Error connecting to database.' });
 
-        conn.query('SHOW COLUMNS FROM constellations', (err, columns) => {
-            if (err) { conn.release(); return res.status(500).json({ message: 'Error updating constellation.' }); }
-
-            const columnNames = columns.map(c => c.Field);
-            const idField = columnNames.includes('constellation_id') ? 'constellation_id' : 'id';
-
-            conn.query(`UPDATE constellations SET name = ?, constellation_data = ? WHERE ${idField} = ?`, [name, JSON.stringify(constellationData), constellationId], (err, result) => {
-                conn.release();
-                if (err) { console.error('Error updating constellation:', err.message); return res.status(500).json({ message: 'Error updating constellation.' }); }
-                if (result.affectedRows === 0) return res.status(404).json({ message: 'Constellation not found.' });
-                res.status(200).json({ message: 'Constellation updated successfully!' });
-            });
+        conn.query('UPDATE constellations SET name = ?, constellation_data = ? WHERE constellation_id = ?', [name, JSON.stringify(constellationData), constellationId], (err, result) => {
+            conn.release();
+            if (err) { console.error('Error updating constellation:', err.message); return res.status(500).json({ message: 'Error updating constellation.' }); }
+            if (result.affectedRows === 0) return res.status(404).json({ message: 'Constellation not found.' });
+            res.status(200).json({ message: 'Constellation updated successfully!' });
         });
     });
 });
 
+// deletes a constellation — checks that it belongs to the logged-in user before deleting
 app.delete('/constellation/:id', authenticateToken, (req, res) => {
     const constellationId = req.params.id;
     const userId = req.user.id;
@@ -591,38 +478,33 @@ app.delete('/constellation/:id', authenticateToken, (req, res) => {
     db.getConnection((err, conn) => {
         if (err) return res.status(500).json({ message: 'Error connecting to database.' });
 
-        conn.query('SHOW COLUMNS FROM constellations', (err, columns) => {
-            if (err) { conn.release(); return res.status(500).json({ message: 'Error deleting constellation.' }); }
-
-            const columnNames = columns.map(c => c.Field);
-            const idField = columnNames.includes('constellation_id') ? 'constellation_id' : 'id';
-
-            conn.query(`DELETE FROM constellations WHERE ${idField} = ? AND user_id = ?`, [constellationId, userId], (err, result) => {
-                conn.release();
-                if (err) return res.status(500).json({ message: 'Error deleting constellation.' });
-                if (result.affectedRows === 0) return res.status(404).json({ message: 'Constellation not found or not yours.' });
-                res.status(200).json({ message: 'Constellation deleted.' });
-            });
+        conn.query('DELETE FROM constellations WHERE constellation_id = ? AND user_id = ?', [constellationId, userId], (err, result) => {
+            conn.release();
+            if (err) return res.status(500).json({ message: 'Error deleting constellation.' });
+            if (result.affectedRows === 0) return res.status(404).json({ message: 'Constellation not found or not yours.' });
+            res.status(200).json({ message: 'Constellation deleted.' });
         });
     });
 });
 
+// gets all constellations for a specific user — only works if you're requesting your own
 app.get('/constellations/:userId', authenticateToken, (req, res) => {
     const userId = req.params.userId;
 
     if (req.user.id != userId) return res.status(403).json({ message: 'Unauthorized.' });
 
     db.getConnection((err, conn) => {
-        if (err) { console.error('Database connection error:', err); return res.status(500).json({ error: 'Database connection error.' }); }
+        if (err) return res.status(500).json({ error: 'Database connection error.' });
 
         conn.query('SELECT * FROM constellations WHERE user_id = ? ORDER BY created_at DESC', [userId], (err, results) => {
             conn.release();
-            if (err) { console.error('Query error:', err.message); return res.status(500).json({ error: err.message }); }
+            if (err) return res.status(500).json({ error: err.message });
             res.json(results);
         });
     });
 });
 
+// gets a single constellation by id — used when opening an existing constellation to edit
 app.get('/constellation/:id', (req, res) => {
     const constellationId = req.params.id;
 
@@ -631,31 +513,20 @@ app.get('/constellation/:id', (req, res) => {
     db.getConnection((err, conn) => {
         if (err) return res.status(500).json({ message: 'Error connecting to database.' });
 
-        conn.query('SHOW COLUMNS FROM constellations', (err, columns) => {
-            if (err) { conn.release(); return res.status(500).json({ message: 'Error fetching constellation.' }); }
-
-            const columnNames = columns.map(c => c.Field);
-            const selectFields = [];
-            if (columnNames.includes('constellation_id')) selectFields.push('constellation_id as id');
-            else if (columnNames.includes('id')) selectFields.push('id');
-            if (columnNames.includes('user_id')) selectFields.push('user_id');
-            if (columnNames.includes('name')) selectFields.push('name');
-            if (columnNames.includes('constellation_data')) selectFields.push('constellation_data');
-            if (columnNames.includes('created_at')) selectFields.push('created_at');
-
-            const idCol = columnNames.includes('constellation_id') ? 'constellation_id' : 'id';
-            const query = `SELECT ${selectFields.join(', ')} FROM constellations WHERE ${idCol} = ? LIMIT 1`;
-
-            conn.query(query, [constellationId], (err, results) => {
+        conn.query(
+            'SELECT constellation_id AS id, user_id, name, constellation_data, created_at FROM constellations WHERE constellation_id = ? LIMIT 1',
+            [constellationId],
+            (err, results) => {
                 conn.release();
-                if (err) { console.error('Error fetching constellation:', err.message); return res.status(500).json({ message: 'Error fetching constellation.' }); }
+                if (err) return res.status(500).json({ message: 'Error fetching constellation.' });
                 if (!results.length) return res.status(404).json({ message: 'Constellation not found.' });
                 res.status(200).json(results[0]);
-            });
-        });
+            }
+        );
     });
 });
 
+// forwards the words to the Python Flask server which handles the NLP processing
 app.post('/process-words', async (req, res) => {
     const { words } = req.body;
     if (!words) return res.status(400).json({ error: 'No words provided' });
