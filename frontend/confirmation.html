@@ -233,19 +233,67 @@
         .icon-btn:hover { background: rgba(94,234,212,0.12); color: #5eead4; border-color: rgba(94,234,212,0.25); }
         .icon-btn.del:hover { background: rgba(239,68,68,0.12); color: #f87171; border-color: rgba(239,68,68,0.25); }
 
+
+        /* card selected for compare */
+        .constellation-card.compare-selected {
+            border-color: rgba(248,197,55,0.6);
+            box-shadow: 0 0 0 2px rgba(248,197,55,0.2);
+        }
+
+        /* compare modal */
+        .compare-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            -webkit-backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px);
+        }
+        .compare-overlay.open { display: flex; }
+        .compare-box {
+            background: #0f172a;
+            border: 1px solid rgba(94,234,212,0.15);
+            border-radius: 16px;
+            padding: 24px;
+            width: 520px;
+            max-width: 92vw;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .compare-box h3 { font-size: 15px; color: #f1f5f9; margin-bottom: 18px; }
+        .compare-section { margin-bottom: 16px; }
+        .compare-label { font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .compare-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .compare-col-title { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+        .compare-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip { padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 500; border: 1px solid; }
+        .chip-teal  { background: rgba(94,234,212,0.1);  border-color: rgba(94,234,212,0.3);  color: #5eead4; }
+        .chip-yellow{ background: rgba(248,197,55,0.1);  border-color: rgba(248,197,55,0.3);  color: #f8c537; }
+        .chip-purple{ background: rgba(192,132,252,0.1); border-color: rgba(192,132,252,0.3); color: #c084fc; }
+        .compare-empty { font-size: 12px; color: #475569; }
+        .compare-divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 16px 0; }
+        .compare-footer { display: flex; justify-content: flex-end; }
+        .compare-col-a { color: #f8c537; }
+        .compare-col-b { color: #c084fc; }
+        .compare-diff { font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 18px; }
+        .icon-btn.cmp.active { background: rgba(248,197,55,0.15); color: #f8c537; border-color: rgba(248,197,55,0.4); }
+
     </style>
 </head>
 <body>
 
     <nav class="navbar">
-        <span class="navbar-logo">âœ¦ MindMap</span>
+        <span class="navbar-logo">✦ MindMap</span>
         <div class="navbar-right">
             <button type="button" class="btn btn-ghost" onclick="window.location.href='login.html'">Log out</button>
             <div class="user-pill">
                 <div class="user-star" id="account-icon"></div>
                 <div class="user-info">
-                    <div class="name" id="user-name">â€”</div>
-                    <div class="email" id="user-email">â€”</div>
+                    <div class="name" id="user-name">—</div>
+                    <div class="email" id="user-email">—</div>
                 </div>
             </div>
         </div>
@@ -269,7 +317,20 @@
     </main>
 
 
-    <script>
+    <!-- compare modal -->
+    <div class="compare-overlay" id="compare-modal">
+        <div class="compare-box">
+            <h3 id="compare-title"></h3>
+            <p id="compare-diff" class="compare-diff"></p>
+            <div id="compare-body"></div>
+            <hr class="compare-divider">
+            <div class="compare-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeCompare()">Close</button>
+            </div>
+        </div>
+    </div>
+
+        <script>
         function timeAgo(dateStr) {
             const diff = Date.now() - new Date(dateStr).getTime();
             const m = Math.floor(diff / 60000);
@@ -289,6 +350,97 @@
 
         // --- init ---
         window.constellationMap = {};
+
+        let compareSelection = [];
+
+        // --- compare ---
+        function toggleCompare(cId) {
+            const card = document.getElementById(`preview-${cId}`)?.closest('.constellation-card');
+            const btn  = document.getElementById(`cmp-btn-${cId}`);
+
+            if (compareSelection.includes(cId)) {
+                compareSelection = compareSelection.filter(id => id !== cId);
+                card?.classList.remove('compare-selected');
+                btn?.classList.remove('active');
+                return;
+            }
+
+            if (compareSelection.length >= 2) {
+                const old = compareSelection.shift();
+                document.getElementById(`preview-${old}`)?.closest('.constellation-card')?.classList.remove('compare-selected');
+                document.getElementById(`cmp-btn-${old}`)?.classList.remove('active');
+            }
+
+            compareSelection.push(cId);
+            card?.classList.add('compare-selected');
+            btn?.classList.add('active');
+
+            if (compareSelection.length === 2) showComparison(compareSelection[0], compareSelection[1]);
+        }
+
+        function showComparison(idA, idB) {
+            const a = window.constellationMap[idA];
+            const b = window.constellationMap[idB];
+            const dataA = typeof a.constellation_data === 'string' ? JSON.parse(a.constellation_data) : a.constellation_data;
+            const dataB = typeof b.constellation_data === 'string' ? JSON.parse(b.constellation_data) : b.constellation_data;
+
+            const wordsA = new Set((dataA.inputWords || '').split(',').map(w => w.trim().toLowerCase()).filter(Boolean));
+            const wordsB = new Set((dataB.inputWords || '').split(',').map(w => w.trim().toLowerCase()).filter(Boolean));
+            const common = [...wordsA].filter(w => wordsB.has(w));
+            const onlyA  = [...wordsA].filter(w => !wordsB.has(w));
+            const onlyB  = [...wordsB].filter(w => !wordsA.has(w));
+
+            const total = wordsA.size + wordsB.size - common.length;
+            let diffText = '';
+            if (common.length === 0) {
+                diffText = 'These two constellations have nothing in common — they explore completely different areas.';
+            } else if (onlyA.length === 0 && onlyB.length === 0) {
+                diffText = 'These two constellations are identical — same words, same direction.';
+            } else if (common.length >= total * 0.7) {
+                diffText = `These two are very similar. The main difference is that <b>${b.name || 'B'}</b> ${onlyB.length ? 'also explores: <i>' + onlyB.join(', ') + '</i>' : 'covers no extra ground'}.`;
+            } else if (onlyA.length === 0) {
+                diffText = `<b>${a.name || 'A'}</b> is fully contained inside <b>${b.name || 'B'}</b> — everything in it also appears there, plus: <i>${onlyB.join(', ')}</i>.`;
+            } else if (onlyB.length === 0) {
+                diffText = `<b>${b.name || 'B'}</b> is fully contained inside <b>${a.name || 'A'}</b> — everything in it also appears there, plus: <i>${onlyA.join(', ')}</i>.`;
+            } else {
+                diffText = `They share a common base but go in different directions — <b>${a.name || 'A'}</b> uniquely explores <i>${onlyA.join(', ')}</i>, while <b>${b.name || 'B'}</b> goes toward <i>${onlyB.join(', ')}</i>.`;
+            }
+
+            const chips = (words, cls) => words.length
+                ? words.map(w => '<span class="chip ' + cls + '">' + w + '</span>').join('')
+                : '<span class="compare-empty">none</span>';
+
+            document.getElementById('compare-title').textContent =
+                (a.name || 'Untitled') + '  vs  ' + (b.name || 'Untitled');
+            document.getElementById('compare-diff').innerHTML = diffText;
+            document.getElementById('compare-body').innerHTML =
+                '<div class="compare-section">' +
+                    '<div class="compare-label">words in common (' + common.length + ')</div>' +
+                    '<div class="compare-chips">' + chips(common, 'chip-teal') + '</div>' +
+                '</div>' +
+                '<div class="compare-row">' +
+                    '<div>' +
+                        '<div class="compare-col-title compare-col-a">' + (a.name || 'A') + '</div>' +
+                        '<div class="compare-chips">' + chips(onlyA, 'chip-yellow') + '</div>' +
+                    '</div>' +
+                    '<div>' +
+                        '<div class="compare-col-title compare-col-b">' + (b.name || 'B') + '</div>' +
+                        '<div class="compare-chips">' + chips(onlyB, 'chip-purple') + '</div>' +
+                    '</div>' +
+                '</div>';
+            document.getElementById('compare-modal').classList.add('open');
+        }
+
+        function closeCompare() {
+            document.getElementById('compare-modal').classList.remove('open');
+            compareSelection.forEach(id => {
+                document.getElementById('preview-' + id)?.closest('.constellation-card')?.classList.remove('compare-selected');
+                document.getElementById('cmp-btn-' + id)?.classList.remove('active');
+            });
+            compareSelection = [];
+        }
+
+
 
         document.addEventListener('DOMContentLoaded', async () => {
             const user = JSON.parse(localStorage.getItem('user'));
@@ -349,10 +501,11 @@
                                 <div class="card-date" title="${fullDate}">${c.created_at ? timeAgo(c.created_at) : ''}</div>
                             </div>
                             <div class="card-actions">
-                                <button type="button" class="icon-btn" title="Edit" onclick="viewConstellation(${cId})">âœï¸</button>
-                                <button type="button" class="icon-btn" title="PNG" onclick="downloadConstellationImage(window.constellationMap[${cId}])">ðŸ–¼</button>
-                                <button type="button" class="icon-btn" title="CSV Report" onclick="downloadConstellationReport(window.constellationMap[${cId}])">ðŸ“„</button>
-                                <button type="button" class="icon-btn del" title="Delete" onclick="deleteConstellation(${cId})">ðŸ—‘</button>
+                                <button type="button" class="icon-btn" title="Edit" onclick="viewConstellation(${cId})">✏️</button>
+                                <button type="button" class="icon-btn" title="PNG" onclick="downloadConstellationImage(window.constellationMap[${cId}])">🖼</button>
+                                <button type="button" class="icon-btn" title="CSV Report" onclick="downloadConstellationReport(window.constellationMap[${cId}])">📄</button>
+                                <button type="button" class="icon-btn del" title="Delete" onclick="deleteConstellation(${cId})">🗑</button>
+                                <button type="button" class="icon-btn cmp" title="Compare" id="cmp-btn-${cId}" onclick="toggleCompare(${cId})">⇄</button>
                             </div>
                         </div>`;
                     listEl.appendChild(card);
@@ -404,7 +557,7 @@
             try { const f = await fetch('http://127.0.0.1:5000/health'); flaskOk = f.ok || f.status === 404; } catch (_) {}
             if (!nodeOk || !flaskOk) {
                 banner.style.display = 'block';
-                banner.textContent = `Some services are unreachable â€” Node: ${nodeOk ? 'âœ“' : 'âœ—'}  NLP: ${flaskOk ? 'âœ“' : 'âœ—'}`;
+                banner.textContent = `Some services are unreachable — Node: ${nodeOk ? '✓' : '✗'}  NLP: ${flaskOk ? '✓' : '✗'}`;
             }
         }
 
@@ -444,7 +597,7 @@
                 .map(v => Math.min(255, v + 60).toString(16).padStart(2,'0')).join('');
         }
 
-        function createMiniConstellation(data, size = 250) {
+        function createMiniConstellation(data, size = 250, showLabels = false) {
             const ns = 'http://www.w3.org/2000/svg';
             const svg = document.createElementNS(ns, 'svg');
             svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
@@ -510,6 +663,20 @@
                 el.setAttribute('stroke', _brighten(color));
                 el.setAttribute('stroke-width', '1');
                 svg.appendChild(el);
+
+                if (showLabels && node.id) {
+                    const txt = document.createElementNS(ns, 'text');
+                    txt.setAttribute('x', cx.toFixed(2));
+                    txt.setAttribute('y', (cy + r + size * 0.018).toFixed(2));
+                    txt.setAttribute('text-anchor', 'middle');
+                    txt.setAttribute('dominant-baseline', 'hanging');
+                    txt.setAttribute('fill', isRoot ? rootColor : '#cbd5e1');
+                    txt.setAttribute('font-size', (size * 0.022).toFixed(1));
+                    txt.setAttribute('font-family', 'sans-serif');
+                    txt.setAttribute('font-weight', isRoot ? '700' : '400');
+                    txt.textContent = node.id;
+                    svg.appendChild(txt);
+                }
             });
 
             return svg;
@@ -524,7 +691,7 @@
             const data = parseData(constellation);
             if (!data) return alert('No data to export.');
             const exportSize = 1600;
-            const svgEl = createMiniConstellation(data, exportSize);
+            const svgEl = createMiniConstellation(data, exportSize, true);
             const svgString = new XMLSerializer().serializeToString(svgEl);
             const url = URL.createObjectURL(new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' }));
             const image = new Image();
@@ -554,20 +721,47 @@
         function downloadConstellationReport(constellation) {
             const data = parseData(constellation);
             if (!data) return alert('No data to export.');
+
+            const inputWords = (data.inputWords || '').split(',').map(w => w.trim()).filter(Boolean);
+            const expandedNodes = (data.nodes || []).filter(n => n.type !== 'input' && n.type !== 'root');
+            const inputNodes = (data.nodes || []).filter(n => n.type === 'input' || n.type === 'root');
+
             const rows = [];
-            rows.push(['Constellation Report']);
-            rows.push(['Name', csvEscape(constellation.name || 'Untitled')]);
-            rows.push(['Nodes', (data.nodes||[]).length]);
-            rows.push(['Links', (data.links||[]).length]);
-            rows.push([]);
-            rows.push(['NODES']); rows.push(['Word','Type','Categories']);
-            (data.nodes||[]).forEach(n => rows.push([csvEscape(n.id), csvEscape(n.type||''), csvEscape((n.categories||[]).join('; '))]));
-            rows.push([]); rows.push(['CONNECTIONS']); rows.push(['Source','Target']);
-            (data.links||[]).forEach(l => rows.push([csvEscape(l.source?.id??l.source), csvEscape(l.target?.id??l.target)]));
+            // Summary
+            rows.push(['CONSTELLATION REPORT', '', '']);
+            rows.push(['Name', csvEscape(constellation.name || 'Untitled'), '']);
+            rows.push(['Created', constellation.created_at ? new Date(constellation.created_at).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}) : '', '']);
+            rows.push(['Total words', (data.nodes||[]).length, '']);
+            rows.push(['Connections', (data.links||[]).length, '']);
+            rows.push(['', '', '']);
+
+            // Input words
+            rows.push(['YOUR WORDS', '', '']);
+            inputWords.forEach(w => rows.push([csvEscape(w), '', '']));
+            rows.push(['', '', '']);
+
+            // All words with categories
+            rows.push(['ALL WORDS', 'TYPE', 'CATEGORIES']);
+            (data.nodes||[]).forEach(n => rows.push([
+                csvEscape(n.id),
+                csvEscape(n.type === 'input' || n.type === 'root' ? 'input' : 'expanded'),
+                csvEscape((n.categories||[]).join(', '))
+            ]));
+            rows.push(['', '', '']);
+
+            // Connections
+            rows.push(['CONNECTIONS', '', '']);
+            rows.push(['FROM', 'TO', 'TYPE']);
+            (data.links||[]).forEach(l => rows.push([
+                csvEscape(l.source?.id ?? l.source),
+                csvEscape(l.target?.id ?? l.target),
+                csvEscape(l.relation || '')
+            ]));
 
             const csv = rows.map(r => r.join(',')).join('\r\n');
+            const bom = '\uFEFF';
             const a = document.createElement('a');
-            a.href = URL.createObjectURL(new Blob(['ï»¿'+csv], { type: 'text/csv;charset=utf-8' }));
+            a.href = URL.createObjectURL(new Blob([bom + csv], { type: 'text/csv;charset=utf-8' }));
             a.download = `${constellation.name||'constellation'}-report.csv`;
             a.click();
         }

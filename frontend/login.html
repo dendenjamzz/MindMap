@@ -10,7 +10,7 @@
 <body class="page-auth">
 
     <div class="form-container">
-        <div class="auth-logo">âœ¦ MindMap</div>
+        <div class="auth-logo">✦ MindMap</div>
 
         <div class="auth-tabs">
             <button type="button" class="auth-tab active" id="tab-login" onclick="switchTab('login')">Login</button>
@@ -66,12 +66,12 @@
             document.getElementById('tab-signup').classList.toggle('active', !isLogin);
         }
 
-        // show/hide password â€” login
+        // show/hide password — login
         document.getElementById('show-login-pw').addEventListener('change', function () {
             document.getElementById('login-password').type = this.checked ? 'text' : 'password';
         });
 
-        // show/hide password â€” signup
+        // show/hide password — signup
         document.getElementById('show-signup-pw').addEventListener('change', function () {
             document.getElementById('signup-password').type = this.checked ? 'text' : 'password';
         });

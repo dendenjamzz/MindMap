@@ -9,7 +9,7 @@
 </head>
 <body class="page-newc">
     <nav class="newc-navbar">
-        <span class="navbar-logo">âœ¦ MindMap</span>
+        <span class="navbar-logo">✦ MindMap</span>
         <button type="button" id="back-button" class="newc-back-btn">&larr; My Constellations</button>
     </nav>
 
@@ -19,8 +19,8 @@
     <div class="newc-main">
         <div class="form-container">
             <h1>Word Constellation</h1>
-            <p>Enter up to <b>10 words</b> separated by commas â€” example: <i>cat, dog, apple</i>.<br>
-            English only. If a word doesnâ€™t appear, check spelling.</p>
+            <p>Enter up to <b>10 words</b> separated by commas — example: <i>cat, dog, apple</i>.<br>
+            English only. If a word doesn't appear, check spelling.</p>
             <textarea id="words-input" placeholder="cat, dog, apple..."></textarea>
             <div class="action-buttons">
                 <button type="button" id="submit-button">Generate</button>
@@ -31,7 +31,7 @@
         <div id="graph-loading"><span class="loading-spinner"></span><span id="graph-loading-text">Loading constellation...</span></div>
         <div id="zoom-controls">
             <button id="zoom-in" class="zoom-btn" title="Zoom in" aria-label="Zoom in">+</button>
-            <button id="zoom-out" class="zoom-btn" title="Zoom out" aria-label="Zoom out">âˆ’</button>
+            <button id="zoom-out" class="zoom-btn" title="Zoom out" aria-label="Zoom out">−</button>
         </div>
         <div id="link-note"></div>
         <div id="suggestion-note"></div>
@@ -348,7 +348,7 @@
                 return;
             }
 
-            // â”€â”€ EDIT MODE: update the existing constellation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // -- EDIT MODE: update the existing constellation --
             if (editingId) {
                 try {
                     const res = await fetch(`http://localhost:3002/update-constellation/${editingId}`, {
@@ -371,7 +371,7 @@
                 return;
             }
 
-            // â”€â”€ NEW CONSTELLATION: ask for a name then create â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // -- NEW CONSTELLATION: ask for a name then create --
             const name = prompt('Name this constellation:', 'My Constellation');
             if (!name) return;
 
@@ -828,7 +828,7 @@
                             }
 
                             if (def) {
-                                const short = def.length > 140 ? def.slice(0, 137) + 'â€¦' : def;
+                                const short = def.length > 140 ? def.slice(0, 137) + '…' : def;
                                 suggestionNote.innerHTML = buildHtml(`<i>${pos ? pos + ': ' : ''}${short}</i>`);
                             } else {
                                 suggestionNote.innerHTML = buildHtml(`<i>No definition found.</i>`);
