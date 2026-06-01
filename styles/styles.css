@@ -1,0 +1,705 @@
+/* ========== Base Styles ========== */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+    color: #333;
+    background-color: #f4f7fa;
+}
+
+button {
+    font-family: inherit;
+    cursor: pointer;
+}
+
+
+/* ========== Page: login.html ==========
+   Styles for the authentication form.
+================================================== */
+/* Body and layout */
+.page-auth {
+    --bg: #0b1224;
+    --panel: #0f172a;
+    --stroke: #243249;
+    --text: #e8eefc;
+    --muted: #9fb2d7;
+    --accent: #f8c537;
+    --accent-2: #5eead4;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    background: radial-gradient(circle at 20% 20%, rgba(94, 234, 212, 0.06), transparent 26%),
+                radial-gradient(circle at 80% 10%, rgba(248, 197, 55, 0.08), transparent 30%),
+                linear-gradient(140deg, #050915 0%, #0b1224 50%, #0a152e 100%);
+    color: var(--text);
+    font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+}
+
+/* Logo */
+.page-auth .auth-logo {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 22px;
+    letter-spacing: 0.5px;
+}
+
+/* Tab switcher */
+.page-auth .auth-tabs {
+    display: flex;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--stroke);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 20px;
+    gap: 4px;
+}
+
+.page-auth .auth-tab {
+    flex: 1;
+    padding: 9px;
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    box-shadow: none;
+    margin-top: 0;
+    width: auto;
+}
+
+.page-auth .auth-tab.active {
+    background: var(--accent);
+    color: #0b1224;
+}
+
+.page-auth .auth-tab:hover:not(.active) {
+    background: rgba(255,255,255,0.06);
+    color: var(--text);
+    transform: none;
+}
+
+/* Hidden form */
+.page-auth .form-hidden {
+    display: none;
+}
+
+/* Status messages */
+.page-auth #login-status,
+.page-auth #signup-status {
+    margin-top: 10px;
+    font-size: 14px;
+    min-height: 20px;
+}
+
+/* Form container */
+.page-auth .form-container {
+    background: var(--panel);
+    border: 1px solid var(--stroke);
+    border-radius: 16px;
+    padding: 26px 22px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.35);
+}
+
+/* Headings */
+.page-auth h1 {
+    text-align: center;
+    color: var(--text);
+    margin: 0 0 10px 0;
+    letter-spacing: 0.5px;
+}
+
+/* Labels */
+.page-auth label {
+    display: block;
+    font-size: 14px;
+    color: var(--muted);
+    margin: 10px 0 6px;
+}
+
+/* Inputs, textareas, selects */
+.page-auth input,
+.page-auth textarea,
+.page-auth select {
+    width: 100%;
+    padding: 11px 12px;
+    margin-bottom: 6px;
+    border: 1px solid var(--stroke);
+    border-radius: 10px;
+    font-size: 15px;
+    background: #0d1527;
+    color: var(--text);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.page-auth input:focus,
+.page-auth textarea:focus,
+.page-auth select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(248, 197, 55, 0.18);
+}
+
+/* Show password toggle */
+.page-auth .show-password {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 6px 0 14px;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.page-auth .show-password input[type="checkbox"] {
+    width: auto;
+    accent-color: var(--accent);
+}
+
+/* Buttons */
+.page-auth button {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+    color: #0b1224;
+    font-size: 1rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 12px;
+    transition: transform 0.12s ease, box-shadow 0.2s ease;
+    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.18);
+    margin-top: 10px;
+}
+
+.page-auth button:hover {
+    transform: translateY(-1px) scale(1.01);
+}
+
+.page-auth button:active {
+    transform: translateY(0);
+}
+
+
+/* ========== Page: newc.html ==========
+   Styles for the constellation editor page.
+================================================== */
+/* Body and layout */
+.page-newc {
+    --bg: #0b1224;
+    --panel: #0f172a;
+    --panel-strong: #111a31;
+    --text: #e8eefc;
+    --muted: #9fb2d7;
+    --accent: #f8c537;
+    --accent-2: #5eead4;
+    --stroke: #243249;
+    min-height: 100vh;
+    margin: 0;
+    color: var(--text);
+    background: radial-gradient(circle at 20% 20%, rgba(94, 234, 212, 0.06), transparent 26%),
+                radial-gradient(circle at 80% 10%, rgba(248, 197, 55, 0.08), transparent 30%),
+                linear-gradient(140deg, #050915 0%, #0b1224 50%, #0a152e 100%);
+    font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0;
+}
+
+/* Navbar */
+.page-newc .newc-navbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    height: 64px;
+    background: rgba(8, 13, 26, 0.95);
+    border-bottom: 1px solid rgba(94, 234, 212, 0.12);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    box-sizing: border-box;
+}
+
+.page-newc .navbar-logo {
+    font-size: 18px;
+    font-weight: 700;
+    color: #f8c537;
+    letter-spacing: 0.5px;
+}
+
+.page-newc .newc-back-btn {
+    width: auto;
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 8px;
+    box-shadow: none;
+    margin-top: 0;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.page-newc .newc-back-btn:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #e2e8f0;
+    background: transparent;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Main content wrapper */
+.page-newc .newc-main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 18px 48px;
+    width: 100%;
+}
+
+/* Form containers */
+.page-newc .form-container {
+    background: var(--panel);
+    padding: 24px 22px 20px 22px;
+    border-radius: 18px;
+    border: 1px solid var(--stroke);
+    width: 100%;
+    max-width: 760px;
+    margin: 12px 0 18px 0;
+    position: relative;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+}
+
+.page-newc .form-container--compact {
+    max-width: 760px;
+    margin-top: 10px;
+}
+
+.page-newc .form-container::before {
+    content: "✦";
+    font-size: 1.8rem;
+    position: absolute;
+    left: 14px;
+    top: 10px;
+    color: var(--accent);
+}
+
+/* No static star on the appearance panel — replaced by animated field */
+.page-newc .form-container--compact::before {
+    display: none;
+}
+
+/* Headings */
+.page-newc h1 {
+    font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+    color: var(--text);
+    font-size: 2.1rem;
+    margin: 0 0 6px 0;
+    letter-spacing: 0.5px;
+}
+
+/* Paragraphs */
+.page-newc .form-container p {
+    color: var(--muted);
+    font-size: 1rem;
+    margin: 0 0 14px 0;
+}
+
+/* Textarea */
+.page-newc textarea {
+    width: 100%;
+    height: 110px;
+    padding: 12px 12px 12px 14px;
+    border: 1px solid var(--stroke);
+    border-radius: 12px;
+    font-size: 17px;
+    background: #0d1527;
+    color: var(--text);
+    resize: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    margin-bottom: 12px;
+}
+
+.page-newc textarea:focus {
+    border-color: var(--accent);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(248, 197, 55, 0.18);
+}
+
+/* Buttons */
+.page-newc button {
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+    color: #0b1224;
+    font-size: 1.05rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 12px;
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+    margin-top: 0;
+}
+
+.page-newc button:hover {
+    transform: translateY(-1px) scale(1.01);
+}
+
+.page-newc button:active {
+    transform: translateY(0);
+}
+
+/* Action buttons */
+.page-newc .action-buttons {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    margin-top: 12px;
+}
+
+.page-newc .action-buttons button {
+    flex: 1;
+}
+
+
+.page-newc #save-style {
+    background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+}
+
+/* Graph container */
+.page-newc #graph-container {
+    width: 100%;
+    max-width: 1400px;
+    min-width: 340px;
+    height: 760px;
+    min-height: 420px;
+    border: 1px solid var(--stroke);
+    border-radius: 16px;
+    background: #ffffff;
+    position: relative;
+    margin: 12px 0 18px 0;
+    resize: both;
+    overflow: hidden;
+}
+
+/* Graph loading */
+.page-newc #graph-loading {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.82);
+    color: #0b1224;
+    font-weight: 700;
+    z-index: 30;
+    pointer-events: none;
+}
+
+/* Loading spinner */
+.page-newc .loading-spinner {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    border: 2px solid rgba(15, 23, 42, 0.22);
+    border-top-color: #0f172a;
+    animation: constellationSpin 0.8s linear infinite;
+}
+
+@keyframes constellationSpin {
+    to { transform: rotate(360deg); }
+}
+
+/* Zoom controls */
+.page-newc #zoom-controls {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+}
+
+/* Link and suggestion notes */
+.page-newc #link-note,
+.page-newc #suggestion-note {
+    position: absolute;
+    padding: 8px 10px;
+    background: #0f192f;
+    border: 1px solid var(--stroke);
+    border-radius: 8px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28);
+    color: var(--muted);
+    font-size: 13px;
+    max-width: 260px;
+    display: none;
+    z-index: 21;
+}
+
+.page-newc #link-note {
+    z-index: 20;
+    pointer-events: none;
+}
+
+/* Suggestion buttons */
+.page-newc .suggestion-btn {
+    display: inline-block;
+    margin-top: 6px;
+    margin-right: 6px;
+    padding: 6px 8px;
+    background: #0d1527;
+    border: 1px solid var(--stroke);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .12s, border-color .12s;
+}
+
+.page-newc .suggestion-btn:hover {
+    background: #162040;
+    border-color: #5eead4;
+}
+
+.page-newc .meaning-btn {
+    display: block;
+    width: 100%;
+    margin-right: 0;
+    margin-top: 8px;
+    background: rgba(94,234,212,.08);
+    border-color: rgba(94,234,212,.35);
+    color: #5eead4;
+}
+
+.page-newc .meaning-btn:hover {
+    background: rgba(94,234,212,.18);
+    border-color: #5eead4;
+}
+
+.page-newc .delete-node-btn {
+    display: block;
+    width: 100%;
+    margin-right: 0;
+    margin-top: 6px;
+    background: rgba(239,68,68,.1);
+    border-color: rgba(239,68,68,.4);
+    color: #fca5a5;
+}
+
+.page-newc .delete-node-btn:hover {
+    background: rgba(239,68,68,.22);
+    border-color: #f87171;
+}
+
+.page-newc .meaning-text {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,.08);
+    font-size: 12px;
+    color: #9fb2d7;
+    line-height: 1.5;
+}
+
+/* Zoom buttons */
+.page-newc .zoom-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--stroke);
+    background: #0d1527;
+    color: #f8c537;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.page-newc .zoom-btn:hover {
+    transform: scale(1.05);
+    border-color: var(--accent);
+    color: #5eead4;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+/* Panel heading */
+.page-newc h3 {
+    color: var(--text);
+    margin: 0 0 10px 0;
+    letter-spacing: 0.3px;
+}
+
+/* Nodes */
+.page-newc .nodes path {
+    transition: filter 0.12s, transform 0.12s;
+    filter: drop-shadow(0 0 0px rgba(248, 197, 55, 0.0));
+}
+
+.page-newc .nodes path:hover {
+    filter: drop-shadow(0 0 10px rgba(248, 197, 55, 0.7));
+    transform: scale(1.14);
+}
+
+/* Health banner */
+.page-newc #health-banner {
+    display: none;
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+    padding: 10px 12px;
+    border-radius: 10px;
+    max-width: 760px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+}
+
+/* Status area */
+.page-newc #status-area {
+    position: fixed;
+    top: 74px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    z-index: 2000;
+}
+
+/* Save button */
+.page-newc #save-button {
+    display: none;
+}
+
+/* Style grid */
+.page-newc .style-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+}
+
+/* Style fields */
+.page-newc .style-field {
+    color: var(--muted);
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.page-newc .style-field select,
+.page-newc .style-field input {
+    padding: 8px;
+    border-radius: 10px;
+    border: 1px solid var(--stroke);
+    background: #0d1527;
+    color: var(--text);
+}
+
+/* Style input */
+.page-newc .style-input {
+    height: 36px;
+    border: none;
+    border-radius: 10px;
+    background: #0d1527;
+    color: var(--text);
+}
+
+/* Style section actions */
+.page-newc .style-section-actions {
+    margin-top: 12px;
+    gap: 8px;
+}
+
+
+/* ========== Page: confirmation-success.html ==========
+   Styles for the email confirmed screen.
+================================================== */
+/* Body and layout */
+.page-confirmation-success {
+    --bg: #0b1224;
+    --card: #0f172a;
+    --stroke: #243249;
+    --text: #e8eefc;
+    --accent: #f8c537;
+    --accent-2: #5eead4;
+    min-height: 100vh;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(120% 140% at 20% 20%, rgba(248,197,55,0.08), transparent 35%),
+                radial-gradient(120% 140% at 80% 20%, rgba(94,234,212,0.08), transparent 35%),
+                var(--bg);
+    font-family: 'Segoe UI', sans-serif;
+    color: var(--text);
+}
+
+/* Card container */
+.page-confirmation-success .card {
+    background: var(--card);
+    border: 1px solid var(--stroke);
+    border-radius: 16px;
+    padding: 32px 28px;
+    max-width: 420px;
+    width: 92%;
+    box-shadow: 0 18px 48px rgba(0,0,0,0.4);
+    text-align: center;
+}
+
+/* Heading */
+.page-confirmation-success h1 {
+    margin: 0 0 12px;
+    color: var(--accent);
+    font-size: 24px;
+    letter-spacing: 0.2px;
+}
+
+/* Paragraphs */
+.page-confirmation-success p {
+    margin: 8px 0;
+    color: #aab8d6;
+    line-height: 1.55;
+}
+
+/* Pill element */
+.page-confirmation-success .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    background: rgba(94,234,212,0.12);
+    color: var(--accent-2);
+    border: 1px solid rgba(94,234,212,0.35);
+    font-weight: 600;
+    margin-top: 8px;
+}
+
+/* Info text */
+.page-confirmation-success .info-text {
+    color: #6f7da3;
+    font-size: 14px;
+    margin-top: 14px;
+}

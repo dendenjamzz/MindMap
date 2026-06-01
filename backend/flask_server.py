@@ -3,45 +3,10 @@ from langdetect import detect
 from deep_translator import GoogleTranslator
 import nltk
 from nltk.corpus import wordnet
-from faker.providers.job.en_US import Provider as JobProvider
-import random
 import json
 import os
 import re
 import traceback
-
-
-#reads the economic sectors json and returns it, empty dict if file is missing
-def load_economic_sectors():
-    file_path = 'economic_sectors.json'
-    if os.path.exists(file_path):
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
-
-ECONOMIC_SECTORS_DB = load_economic_sectors()
-
-
-#reads the trending topics json
-def load_trending_topics():
-    file_path = 'trending_topics.json'
-    if os.path.exists(file_path):
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
-
-TRENDING_TOPICS_DB = load_trending_topics()
-
-
-#reads the domain keywords json
-def load_domain_keywords():
-    file_path = 'domain_keywords.json'
-    if os.path.exists(file_path):
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
-
-DOMAIN_KEYWORDS_DB = load_domain_keywords()
 
 
 app = Flask(__name__)
@@ -71,9 +36,6 @@ try:
     nltk.data.find('corpora/omw-1.4')
 except LookupError:
     nltk.download('omw-1.4')
-
-#the list for carrere suggestions
-JOB_DATABASE = list(set(JobProvider.jobs))
 
 PROFANITY_KEYWORDS = {
     'shit', 'damn', 'hell', 'ass', 'bitch', 'crap', 'piss', 'dick', 'cock',
@@ -134,80 +96,6 @@ def get_wordnet_categories(word):
             cats.append(parts[0])#gets whatever it gets
     return list(set(cats)) if synsets else []#lista goala sau lista cu categorii unice
 
-
-
-#checks which economic sectors match the context of a word
-def generate_economic_tags(words):
-    tags_set = set()#unice
-
-    for word in words:
-        try:
-            synsets = wordnet.synsets(word.lower())
-            if not synsets:
-                continue
-
-            syn = synsets[0]
-            definition = syn.definition().lower()
-
-            hypernyms = []
-            current = syn
-            for _ in range(3):
-                hypers = current.hypernyms()
-                if not hypers:
-                    break
-                current = hypers[0]
-                hypernyms.append(current.lemmas()[0].name().lower())
-
-            full_context = f"{word.lower()} {definition} {' '.join(hypernyms)}"
-            clean_context = re.sub(r'[^\w\s]', '', full_context)#scot punctuatia
-            padded_context = f" {clean_context} "#las spatiu 
-
-            for sector, indicators in ECONOMIC_SECTORS_DB.items():
-                if any(f" {indicator} " in padded_context for indicator in indicators):
-                    tags_set.add(sector)
-
-        except Exception:
-            pass
-
-    return sorted(list(tags_set))[:8]#maxim 8 tags
-
-
-# same as economic tags but checks against trending topics, also adds synonyms to the context
-def generate_trendy_topics(words):
-    trends_set = set()
-
-    for word in words:
-        try:
-            synsets = wordnet.synsets(word.lower())
-            if not synsets:
-                continue
-
-            syn = synsets[0]
-            definition = syn.definition().lower()
-
-            hypernyms = []
-            current = syn
-            for _ in range(3):
-                hypers = current.hypernyms()
-                if not hypers:
-                    break
-                current = hypers[0]
-                hypernyms.append(current.lemmas()[0].name().lower())
-
-            lemmas = [l.name().lower() for l in syn.lemmas()[:4]]
-
-            full_context = f"{word.lower()} {definition} {' '.join(hypernyms)} {' '.join(lemmas)}"
-            clean_context = re.sub(r'[^\w\s]', '', full_context)
-            padded_context = f" {clean_context} "
-
-            for trend, indicators in TRENDING_TOPICS_DB.items():
-                if any(f" {ind} " in padded_context for ind in indicators):
-                    trends_set.add(trend)
-
-        except Exception:
-            pass
-
-    return sorted(list(trends_set))[:8]
 
 
 #similarity score between 0 and 1 for two words using wu-palmer
@@ -337,66 +225,7 @@ def find_connection(word_a, word_b):
     return False
 
 
-# figures out which broad domains a word belongs to using its wordnet lexname and definition
-def detect_semantic_domain(word):
-    domains = []
-    try:
-        synsets = wordnet.synsets(word.lower())
-        if not synsets:
-            return domains
-
-        syn = synsets[0]
-        definition = syn.definition().lower()
-        lexname = syn.lexname()
-
-        if '.' in lexname:
-            domains.append(lexname.split('.')[1])
-
-        current = syn
-        for _ in range(3):
-            hypers = current.hypernyms()
-            if not hypers:
-                break
-            current = hypers[0]
-            hyper_lexname = current.lexname()
-            if '.' in hyper_lexname:
-                domains.append(hyper_lexname.split('.')[1])
-
-        clean_def = re.sub(r'[^\w\s]', '', definition)
-        padded_def = f" {clean_def} "
-        for domain, keywords in DOMAIN_KEYWORDS_DB.items():
-            if any(f" {kw} " in padded_def for kw in keywords):
-                domains.append(domain)
-
-    except Exception:
-        pass
-
-    return list(set(domains))
-
-
-# finds job titles from faker that match the semantic domains of the input words
-def generate_career_tags(words):
-    random.seed(hash(tuple(sorted(words))))
-
-    all_detected_domains = set()
-    for word in words:
-        all_detected_domains.update(detect_semantic_domain(word))
-
-    matched_jobs = set()
-    for domain in all_detected_domains:
-        search_terms = {domain.lower()}
-        for syn in wordnet.synsets(domain):
-            for lemma in syn.lemmas():
-                search_terms.add(lemma.name().lower().replace('_', ' '))
-        for job in JOB_DATABASE:
-            if any(term in job.lower().split() for term in search_terms):
-                matched_jobs.add(job)
-
-    return sorted(random.sample(list(matched_jobs), min(5, len(matched_jobs)))) if matched_jobs else []
-
-
-#takes a comma separated list of words and returns the full data which 
-#is nodes, links, career suggestions, economic tags and trendy topics
+#takes a comma separated list of words and returns nodes, links and suggestions
 @app.route("/process", methods=["POST"])
 def process_words():
     try:
@@ -470,9 +299,6 @@ def process_words():
             "nodes": [{"id": n["id"], "categories": n["categories"]} for n in nodes],
             "links": links,
             "words": input_words,
-            "careers": generate_career_tags(input_words),
-            "economy": generate_economic_tags(input_words),
-            "trends": generate_trendy_topics(input_words),
             "suggestions": suggestions_map
         }
 

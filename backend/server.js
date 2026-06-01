@@ -130,7 +130,7 @@ app.get('/is-confirmed', (req, res) => {
 });
 
 // serves the HTML files from the project folder
-app.use(express.static(path.join(__dirname, '../../')));
+app.use(express.static(path.join(__dirname, '../frontend')));
 
 // --- database setup ---
 
@@ -139,12 +139,6 @@ const dbBaseConfig = {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-};
-
-const dbPoolOptions = {
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
 };
 
 // builds a list of possible db credentials to try (handles root with/without password)
@@ -237,7 +231,7 @@ async function initializeDatabase() {
     for (const candidate of candidates) {
         try {
             await ensureDatabaseWithConfig(candidate);
-            db = mysql.createPool({ ...candidate, ...dbPoolOptions });
+            db = mysql.createPool({ ...candidate, waitForConnections: true, connectionLimit: 10, queueLimit: 0 });
             dbConnectionMeta.connected = true;
             dbConnectionMeta.error = null;
             dbConnectionMeta.configUsed = { host: candidate.host, user: candidate.user, database: candidate.database };
@@ -333,7 +327,6 @@ app.post('/signup',
                                 return res.status(500).json({ error: 'Failed to create user', detail: err.message });
                             }
 
-                            const newUserId = result.insertId;
                             const appUrl = process.env.APP_URL || 'http://localhost:3002';
                             const confirmUrl = `${appUrl}/confirm?email=${encodeURIComponent(email)}`;
                             const mailOptions = {
@@ -348,7 +341,7 @@ app.post('/signup',
                                     console.error('Error sending confirmation email:', error.message);
 
                                     // email failed — delete the account so the user can try again later
-                                    conn.query('DELETE FROM users WHERE id = ?', [newUserId], (deleteErr) => {
+                                    conn.query('DELETE FROM users WHERE id = ?', [result.insertId], (deleteErr) => {
                                         conn.release();
                                         return res.status(500).json({ error: 'Failed to send confirmation email. Please try again later.' });
                                     });
@@ -405,7 +398,6 @@ app.post('/login',
                 res.status(200).json({
                     message: 'Login successful',
                     token,
-                    emailConfirmed: user.confirmed === 1,
                     user: { id: user.id, username: user.username, email: user.email }
                 });
             });

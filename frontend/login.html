@@ -1,16 +1,16 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="stylesheet/styles.css">
+    <link rel="stylesheet" href="../styles/styles.css">
     <title>MindMap</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="page-auth">
 
     <div class="form-container">
-        <div class="auth-logo">✦ MindMap</div>
+        <div class="auth-logo">âœ¦ MindMap</div>
 
         <div class="auth-tabs">
             <button type="button" class="auth-tab active" id="tab-login" onclick="switchTab('login')">Login</button>
@@ -66,12 +66,12 @@
             document.getElementById('tab-signup').classList.toggle('active', !isLogin);
         }
 
-        // show/hide password — login
+        // show/hide password â€” login
         document.getElementById('show-login-pw').addEventListener('change', function () {
             document.getElementById('login-password').type = this.checked ? 'text' : 'password';
         });
 
-        // show/hide password — signup
+        // show/hide password â€” signup
         document.getElementById('show-signup-pw').addEventListener('change', function () {
             document.getElementById('signup-password').type = this.checked ? 'text' : 'password';
         });
@@ -95,10 +95,9 @@
                     localStorage.setItem('user', JSON.stringify({
                         id: data.user.id,
                         username: data.user.username,
-                        email: data.user.email,
-                        emailConfirmed: data.emailConfirmed
+                        email: data.user.email
                     }));
-                    if (data.token) localStorage.setItem('token', data.token);
+                    localStorage.setItem('token', data.token);
                     window.location.href = 'confirmation.html';
                 } else {
                     statusEl.textContent = data.error || 'Failed to log in.';
@@ -127,7 +126,6 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    localStorage.setItem('pendingEmail', email);
                     statusEl.textContent = 'Account created! Check your email to confirm, then come back and log in.';
                     statusEl.style.color = '#5eead4';
                     startPollingConfirmation(email);
@@ -152,7 +150,6 @@
                     if (data.confirmed) {
                         clearInterval(pollTimer);
                         document.getElementById('signup-status').textContent = 'Email confirmed! Redirecting...';
-                        localStorage.setItem('emailConfirmedFlag', 'true');
                         window.location.href = 'confirmation.html';
                     }
                 } catch (err) {

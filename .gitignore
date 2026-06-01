@@ -1,10 +1,28 @@
+﻿# Node modules
+backend/node_modules/
+
+# Python
 .venv/
-MindMap/node_modules/
-MindMap/mindmap-backend/mindmap-backend/node_modules/
+*.pyc
+__pycache__/
+
+# Env files
+.env
+.env.local
+
+# Logs
 *.log
 serverlog.txt
 test_output.txt
-.env
-*.pyc
-__pycache__/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
 .vscode/
+.claude/
+
+# Build outputs
+/dist
+/build

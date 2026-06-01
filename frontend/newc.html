@@ -1,16 +1,15 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="stylesheet/styles.css">
+    <link rel="stylesheet" href="../styles/styles.css">
     <title>Word Constellation</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
-    <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body class="page-newc">
     <nav class="newc-navbar">
-        <span class="navbar-logo">✦ MindMap</span>
+        <span class="navbar-logo">âœ¦ MindMap</span>
         <button type="button" id="back-button" class="newc-back-btn">&larr; My Constellations</button>
     </nav>
 
@@ -20,8 +19,8 @@
     <div class="newc-main">
         <div class="form-container">
             <h1>Word Constellation</h1>
-            <p>Enter up to <b>10 words</b> separated by commas — example: <i>cat, dog, apple</i>.<br>
-            English only. If a word doesn’t appear, check spelling.</p>
+            <p>Enter up to <b>10 words</b> separated by commas â€” example: <i>cat, dog, apple</i>.<br>
+            English only. If a word doesnâ€™t appear, check spelling.</p>
             <textarea id="words-input" placeholder="cat, dog, apple..."></textarea>
             <div class="action-buttons">
                 <button type="button" id="submit-button">Generate</button>
@@ -32,7 +31,7 @@
         <div id="graph-loading"><span class="loading-spinner"></span><span id="graph-loading-text">Loading constellation...</span></div>
         <div id="zoom-controls">
             <button id="zoom-in" class="zoom-btn" title="Zoom in" aria-label="Zoom in">+</button>
-            <button id="zoom-out" class="zoom-btn" title="Zoom out" aria-label="Zoom out">−</button>
+            <button id="zoom-out" class="zoom-btn" title="Zoom out" aria-label="Zoom out">âˆ’</button>
         </div>
         <div id="link-note"></div>
         <div id="suggestion-note"></div>
@@ -65,24 +64,6 @@
         <div class="action-buttons style-section-actions">
             <button id="apply-style">Apply Style</button>
             <button id="save-style" type="button">Save Style</button>
-        </div>
-    </div>
-    <div id="panel-container">
-        <div id="careers-panel" class="panel">
-            <h3>Suggested Careers</h3>
-            <ul id="careers-list"></ul>
-        </div>
-        <div id="words-panel" class="panel">
-            <h3>Words in Constellation</h3>
-            <ul id="words-list"></ul>
-        </div>
-        <div id="economy-panel" class="panel">
-            <h3>Economic Tags</h3>
-            <ul id="economy-list"></ul>
-        </div>
-        <div id="trends-panel" class="panel">
-            <h3>Trendy Topics</h3>
-            <ul id="trends-list"></ul>
         </div>
     </div>
 
@@ -124,11 +105,8 @@
             if (editId || viewId) {
                 await loadConstellationById(editId || viewId, { isView: Boolean(viewId) });
             } else {
-                localStorage.removeItem('editConstellation');
                 currentConstellationData = null;
                 document.getElementById('words-input').value = '';
-                currentStyle = { ...defaultStyle, ...(JSON.parse(localStorage.getItem(styleDefaultKey) || 'null') || {}) };
-                syncStyleControls();
             }
         });
 
@@ -217,11 +195,7 @@
                         currentConstellationData.name = constellation.name;
                     }
 
-                if (data.style) {
-                    currentStyle = { ...defaultStyle, ...data.style };
-                } else {
-                    currentStyle = { ...defaultStyle };
-                }
+                currentStyle = { ...defaultStyle, ...(data.style || {}) };
                 currentConstellationData.style = { ...currentStyle };
                 syncStyleControls();
 
@@ -232,7 +206,6 @@
                 }
 
                 renderGraph(data);
-                updatePanels(data);
 
                 const saveBtn = document.getElementById('save-button');
                 saveBtn.style.display = isView ? 'none' : 'block';
@@ -305,7 +278,6 @@
                         currentConstellationData.inputWords = words;
                         if (prevName) currentConstellationData.name = prevName;
                         renderGraph(data);
-                        updatePanels(data);
                         document.getElementById('save-button').style.display = 'block';
                     } else {
                         showStatus(data.error || 'Failed to process words.', 'error');
@@ -332,7 +304,6 @@
             }
             currentConstellationData.style = { ...currentStyle };
             renderGraph(currentConstellationData);
-            updatePanels(currentConstellationData);
 
             if (!editingId) {
                 showStatus('Style applied locally. Save to keep it.', 'info');
@@ -377,7 +348,7 @@
                 return;
             }
 
-            // ── EDIT MODE: update the existing constellation ──────────────
+            // â”€â”€ EDIT MODE: update the existing constellation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if (editingId) {
                 try {
                     const res = await fetch(`http://localhost:3002/update-constellation/${editingId}`, {
@@ -400,7 +371,7 @@
                 return;
             }
 
-            // ── NEW CONSTELLATION: ask for a name then create ─────────────
+            // â”€â”€ NEW CONSTELLATION: ask for a name then create â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             const name = prompt('Name this constellation:', 'My Constellation');
             if (!name) return;
 
@@ -425,8 +396,6 @@
             }
         });
 
-        
-
         function deleteNode(nodeId) {
             if (!currentConstellationData) return;
             currentConstellationData.nodes = (currentConstellationData.nodes || []).filter(n => n.id !== nodeId);
@@ -437,7 +406,6 @@
             });
             document.getElementById('suggestion-note').style.display = 'none';
             renderGraph(currentConstellationData);
-            updatePanels(currentConstellationData);
         }
 
         async function saveStyleSilently() {
@@ -489,7 +457,7 @@
             let nodeOk = false;
             let flaskOk = false;
             try {
-                const r = await fetch('http://localhost:3002/health', { method: 'GET' });
+                const r = await fetch('http://localhost:3002/health');
                 nodeOk = r.ok;
             } catch (_) { nodeOk = false; }
 
@@ -515,7 +483,6 @@
             const linkNote = document.getElementById('link-note');
             const suggestionNote = document.getElementById('suggestion-note');
             let hideNoteTimeout = null;
-            console.log('Rendering graph with data:', data);
 
             const graphContainer = document.getElementById('graph-container');
             let width = graphContainer.clientWidth || window.innerWidth * 0.8;
@@ -615,7 +582,7 @@
                 .attr('opacity', 0)
                 .style('cursor', 'pointer');
 
-            const symbolForShape = (type, size=800) => {
+            const symbolForShape = (type) => {
                 switch (type) {
                     case 'circle': return d3.symbolCircle;
                     case 'diamond': return d3.symbolDiamond;
@@ -861,7 +828,7 @@
                             }
 
                             if (def) {
-                                const short = def.length > 140 ? def.slice(0, 137) + '…' : def;
+                                const short = def.length > 140 ? def.slice(0, 137) + 'â€¦' : def;
                                 suggestionNote.innerHTML = buildHtml(`<i>${pos ? pos + ': ' : ''}${short}</i>`);
                             } else {
                                 suggestionNote.innerHTML = buildHtml(`<i>No definition found.</i>`);
@@ -947,61 +914,6 @@
                     simulation.force('link').links(data.links);
                     simulation.alpha(0.6).restart();
                 }
-        }
-
-        function updatePanels(data) {
-            const careersList = document.getElementById('careers-list');
-            const wordsList = document.getElementById('words-list');
-            const economyList = document.getElementById('economy-list');
-            const trendsList = document.getElementById('trends-list');
-
-            console.log('Updating panels with data:', data);
-
-            careersList.innerHTML = '';
-            wordsList.innerHTML = '';
-            economyList.innerHTML = '';
-            trendsList.innerHTML = '';
-
-            if (data.careers && Array.isArray(data.careers)) {
-                data.careers.forEach(career => {
-                    const li = document.createElement('li');
-                    li.textContent = career;
-                    careersList.appendChild(li);
-                });
-            } else {
-                careersList.innerHTML = '<li>No careers found.</li>';
-            }
-
-            if (data.words && Array.isArray(data.words)) {
-                data.words.forEach(word => {
-                const li = document.createElement('li');
-                li.textContent = word;
-                wordsList.appendChild(li);
-                });
-
-            } else {
-                wordsList.innerHTML = '<li>No words found.</li>';
-            }
-
-            if (data.economy && Array.isArray(data.economy)) {
-                data.economy.forEach(tag => {
-                    const li = document.createElement('li');
-                    li.textContent = tag;
-                    economyList.appendChild(li);
-                });
-            } else {
-                economyList.innerHTML = '<li>No tags found.</li>';
-            }
-
-            if (data.trends && Array.isArray(data.trends)) {
-                data.trends.forEach(topic => {
-                    const li = document.createElement('li');
-                    li.textContent = topic;
-                    trendsList.appendChild(li);
-                });
-            } else {
-                trendsList.innerHTML = '<li>No trendy topics found.</li>';
-            }
         }
 
     </script>
