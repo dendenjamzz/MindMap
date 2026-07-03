@@ -37,7 +37,7 @@
         <div id="suggestion-note"></div>
     </div>
     <div class="form-container form-container--compact">
-        <h3 class="panel-title">Constellation Appearance</h3>
+        <h3>Constellation Appearance</h3>
         <div class="style-grid">
             <label class="style-field">
                 Node Shape
@@ -412,7 +412,7 @@
             if (!editingId || !currentConstellationData) return false;
             
             const user = JSON.parse(localStorage.getItem('user'));
-            const token = localStorage.getItem('token'); // <-- Grab the token
+            const token = localStorage.getItem('token'); 
             
             // Check if both user and token exist
             if (!user || !user.id || !token) return false;
